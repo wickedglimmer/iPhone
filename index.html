@@ -1,0 +1,3907 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wicked Glimmer</title>
+
+<!-- Firebase SDK (compat build — works without ES modules / build step). -->
+<script src="https://www.gstatic.com/firebasejs/12.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore-compat.js"></script>
+<script>
+  /* Initialize Firebase before any IIFE runs. Exposes `firebase.firestore()`
+     globally so the wickedgram leaderboard code can write/read scores. */
+  firebase.initializeApp({
+    apiKey: "AIzaSyCXa7dsPQ-LNLE0HnLQF9XIbj0hQTd3v8U",
+    authDomain: "wickedgram-leaderboards.firebaseapp.com",
+    projectId: "wickedgram-leaderboards",
+    storageBucket: "wickedgram-leaderboards.firebasestorage.app",
+    messagingSenderId: "317186452132",
+    appId: "1:317186452132:web:8d208ecca265d1ec1bd431"
+  });
+</script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&family=Special+Elite&family=Black+Ops+One&display=swap');
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: transparent;
+  display: flex; justify-content: center; align-items: center;
+  min-height: 100vh; overflow: hidden;
+}
+.scale-wrapper {
+  display: flex; justify-content: center; align-items: center;
+  width: 100vw; height: 100vh;
+}
+.iphone-wrapper {
+  position: relative; width: 640px; height: 1382px;
+  flex-shrink: 0; transform-origin: center center;
+}
+.screen {
+  position: absolute; top: 187px; left: 38px;
+  width: 567px; height: 1002px;
+  overflow: hidden; border-radius: 0; z-index: 1;
+  background: #000;
+  font-family: -apple-system,'Helvetica Neue',Helvetica,Arial,sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+.iphone-bezel {
+  position: absolute; top: 0; left: 0;
+  width: 640px; height: 1382px; z-index: 10;
+  pointer-events: none; display: block;
+}
+.home-button-overlay {
+  position: absolute; bottom: 31px;
+  left: 50%; transform: translateX(-50%);
+  width: 130px; height: 130px;
+  border-radius: 50%; z-index: 15;
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.view {
+  position: absolute; top: 0; left: 0;
+  width: 567px; height: 1002px; overflow: hidden;
+}
+.view.hidden { display: none !important; }
+
+/* ── Status bar ── */
+.status-bar {
+  position: absolute; top: 0; left: 0; right: 0; height: 44px;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 14px; z-index: 30;
+}
+.sb-time { font-size: 21px; font-weight: 700; letter-spacing: 0.02em; }
+.sb-icons { display: flex; align-items: center; gap: 7px; }
+
+/* ════════════════════ GRID VIEW ════════════════════ */
+#gridView { background: #fff; z-index: 1; }
+#gridView .status-bar { background: #000; }
+#gridView .sb-time { color: #fff; }
+.grid-nav {
+  position: absolute; top: 44px; left: 0; right: 0; height: 77px;
+  background: rgba(249,249,249,0.97);
+  border-bottom: 0.5px solid rgba(0,0,0,0.2);
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 14px; z-index: 20;
+}
+.g-btn {
+  font-size: 28px; color: #007AFF; cursor: pointer; padding: 8px 0;
+  min-width: 80px; white-space: nowrap; transition: opacity 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+.g-btn.right { text-align: right; }
+.g-title {
+  position: absolute; left: 50%; transform: translateX(-50%);
+  font-size: 30px; font-weight: 600; color: #000;
+  white-space: nowrap; pointer-events: none;
+}
+.g-btn.del-off { color: #FF3B30; opacity: 0.38; pointer-events: none; }
+.g-btn.del-on  { color: #FF3B30; opacity: 1; pointer-events: auto; }
+.grid-scroll {
+  position: absolute; top: 121px; left: 0; right: 0; bottom: 0;
+  overflow-y: auto; overflow-x: hidden;
+  -webkit-overflow-scrolling: touch; background: #fff;
+  scrollbar-width: none;
+}
+.grid-scroll::-webkit-scrollbar { display: none; }
+.grid-scroll { cursor: default; }
+.grid-scroll.dragging { cursor: grabbing; }
+.photo-grid {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  gap: 1px; background: #f0f0f0;
+  user-select: none; -webkit-user-select: none;
+}
+.g-thumb-filler { aspect-ratio: 1; background: #f0f0f0; }
+.g-thumb {
+  aspect-ratio: 1; overflow: hidden; cursor: pointer;
+  position: relative; -webkit-tap-highlight-color: transparent;
+  transition: opacity 0.22s ease, transform 0.22s ease;
+}
+.g-thumb img {
+  width: 100%; height: 100%; object-fit: cover; object-position: center;
+  display: block; pointer-events: none; -webkit-user-drag: none;
+  transition: filter 0.15s ease;
+}
+.sel-circle {
+  position: absolute; bottom: 8px; right: 8px;
+  width: 30px; height: 30px; border-radius: 50%;
+  border: 2.5px solid rgba(255,255,255,0.92);
+  background: rgba(0,0,0,0.2); display: none;
+  pointer-events: none; box-shadow: 0 1px 4px rgba(0,0,0,0.5);
+}
+.g-thumb.selected .sel-circle { background: #007AFF; border-color: #007AFF; }
+.g-thumb.selected .sel-circle::after {
+  content: ''; position: absolute; left: 7px; top: 15px;
+  width: 11px; height: 6px;
+  border-left: 2.5px solid #fff; border-bottom: 2.5px solid #fff;
+  transform: rotate(-45deg); transform-origin: left bottom; margin-top: -3px;
+}
+.g-thumb.selected img { filter: brightness(0.72); }
+.sel-mode .g-thumb .sel-circle { display: block; }
+.g-thumb.deleting { opacity: 0 !important; transform: scale(0.82) !important; pointer-events: none; }
+
+/* ════════════════════ PHOTO VIEW ════════════════════ */
+#photoView { background: #000; z-index: 2; transform-origin: center center; }
+#photoView.zoom-in {
+  transition: transform 0.31s cubic-bezier(0.14,0.99,0.32,1.0), opacity 0.22s ease;
+}
+#photoView.zoom-out {
+  transition: transform 0.42s cubic-bezier(0.52,0.0,0.72,0.0),
+              opacity   0.42s cubic-bezier(0.75,0,1,1);
+}
+#photoView .status-bar { background: transparent; z-index: 35; }
+#photoView .sb-time { color: #fff; }
+.photo-nav {
+  position: absolute; top: 0; left: 0; right: 0; height: 121px;
+  background: rgba(0,0,0,0.6);
+  display: flex; align-items: flex-end; justify-content: space-between;
+  padding: 0 14px 16px; z-index: 25;
+}
+.pn-back {
+  display: flex; align-items: center; gap: 8px;
+  color: #fff; font-size: 28px; cursor: pointer;
+  padding: 8px 0; min-width: 120px;
+  -webkit-tap-highlight-color: transparent;
+}
+.pn-title {
+  position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%);
+  color: #fff; font-size: 30px; font-weight: 600;
+  white-space: nowrap; pointer-events: none;
+}
+.photo-carousel {
+  position: absolute; top: 0; left: 0;
+  width: 567px; height: 1002px; overflow: hidden;
+  cursor: grab; touch-action: pan-y;
+}
+.photo-carousel:active { cursor: grabbing; }
+.photo-track {
+  display: flex; height: 1002px; will-change: transform;
+  transition: transform 0.32s cubic-bezier(0.25,0.46,0.45,0.94);
+}
+.photo-track.notrans { transition: none !important; }
+.photo-slide {
+  width: 567px; height: 1002px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+.photo-slide img {
+  width: 100%; height: 100%; object-fit: contain; object-position: center;
+  display: block; pointer-events: none; -webkit-user-drag: none;
+}
+.bars-hidden .photo-nav,
+.bars-hidden .scrubber { opacity: 0; pointer-events: none; }
+.scrubber {
+  position: absolute; bottom: 0; left: 0; right: 0; height: 104px;
+  background: rgba(0,0,0,0.76); display: flex; align-items: center; z-index: 25;
+  transition: opacity 0.28s ease;
+}
+.scrub-scroll {
+  display: flex; align-items: center; height: 84px;
+  padding: 0 10px; gap: 4px;
+  overflow-x: auto; -webkit-overflow-scrolling: touch;
+  scrollbar-width: none; width: 100%;
+}
+.scrub-scroll::-webkit-scrollbar { display: none; }
+.scrub-thumb {
+  width: 76px; height: 76px; flex-shrink: 0;
+  overflow: visible; cursor: pointer; position: relative;
+  transition: transform 0.15s ease;
+}
+.scrub-thumb-inner { width: 76px; height: 76px; border-radius: 3px; overflow: hidden; }
+.scrub-thumb img {
+  width: 100%; height: 100%; object-fit: cover; display: block; pointer-events: none;
+}
+.scrub-thumb.active { transform: scale(1.1); z-index: 2; }
+.scrub-thumb.active .scrub-thumb-inner { box-shadow: 0 0 0 3px #fff; }
+
+/* ════════════════════ DASH VIEW ════════════════════ */
+#dashView { background: #1a1a2e; z-index: 3; }
+#dashView .status-bar { background: transparent; }
+#dashView .sb-time { color: #fff; text-shadow: 0 1px 4px rgba(0,0,0,0.6); }
+.dash-bg {
+  position: absolute; top: 0; left: 0; width: 567px; height: 1002px;
+  object-fit: cover; z-index: 0; pointer-events: none;
+}
+.dash-icons-area {
+  position: absolute; top: 60px; left: 0; right: 0; bottom: 160px;
+  display: grid; grid-template-columns: repeat(4,1fr);
+  align-content: start; padding: 16px 10px; gap: 20px 4px;
+  z-index: 5;
+}
+.app-icon {
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.app-icon-img {
+  width: 110px; height: 110px; border-radius: 24px;
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden; flex-shrink: 0;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.35);
+  transition: transform 0.12s ease, opacity 0.12s ease;
+}
+.app-icon:active .app-icon-img { transform: scale(0.90); opacity: 0.85; }
+.app-icon-label {
+  font-size: 18px; color: #fff; text-align: center;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.7); white-space: nowrap;
+  font-weight: 400; letter-spacing: -0.01em;
+}
+
+/* ════════════════════ SAFARI VIEW ════════════════════ */
+#safariView { background: #f2f2f7; z-index: 5; display: flex; flex-direction: column; }
+#safariView .status-bar { background: #f2f2f7; }
+#safariView .sb-time { color: #000; }
+.safari-top-nav {
+  display: flex; align-items: center; justify-content: center;
+  padding: 10px 14px; background: #f2f2f7;
+  border-bottom: 0.5px solid #ccc; height: 72px;
+  position: absolute; top: 44px; left: 0; right: 0; z-index: 10;
+}
+.safari-url-bar {
+  display: flex; align-items: center; flex: 1;
+  background: #e8e8ed; border-radius: 14px; padding: 12px 16px;
+  font-family: -apple-system, sans-serif;
+  min-height: 44px; box-sizing: border-box;
+}
+.safari-iframe {
+  position: absolute; top: 116px; left: 0; right: 0; bottom: 0;
+  border: none; background: #fff;
+}
+/* ─── GlimmerBay (fake onion marketplace) ─── */
+.safari-tor-badge {
+  font-size: 13px; font-weight: 700; letter-spacing: 0.18em;
+  text-transform: uppercase; color: #6a4040;
+  background: rgba(139,0,0,0.10);
+  border: 1px solid rgba(139,0,0,0.35);
+  padding: 4px 8px; border-radius: 4px;
+  margin-right: 10px; flex-shrink: 0;
+}
+.safari-url-text {
+  font-size: 17px; color: #1a1a1a; flex: 1; font-weight: 500;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.glimmerbay {
+  position: absolute; top: 116px; left: 0; right: 0; bottom: 0;
+  background: #e8e8e8;
+  color: #1a1a1a;
+  font-family: 'Times New Roman', Georgia, serif;
+  font-size: 18px;
+  overflow-y: auto; overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.glimmerbay::-webkit-scrollbar { display: none; }
+.gb-header {
+  background: #dcdcdc;
+  border-bottom: 1px solid #b0b0b0;
+  padding: 20px 16px 14px;
+  text-align: center;
+}
+.gb-logo {
+  font-family: 'Times New Roman', Times, serif;
+  font-size: 54px; font-weight: 700; font-style: italic;
+  color: #1a1a1a; letter-spacing: 0.01em; line-height: 1;
+  text-shadow: none;
+}
+.gb-tagline {
+  font-size: 14px; color: #707070;
+  letter-spacing: 0.18em; text-transform: uppercase;
+  margin-top: 7px;
+}
+.gb-account {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 11px 16px;
+  background: #f4f4f4;
+  border-bottom: 1px solid #c4c4c4;
+  font-size: 16px; color: #555;
+}
+.gb-account b { color: #1a1a1a; font-weight: 700; }
+.gb-cart { color: #444; }
+.gb-search-bar {
+  padding: 12px 14px;
+  background: #fafafa;
+  border-bottom: 1px solid #c4c4c4;
+}
+.gb-search-bar input {
+  width: 100%; box-sizing: border-box;
+  background: #ffffff;
+  border: 1px solid #999;
+  color: #1a1a1a;
+  padding: 13px 16px;
+  font-family: inherit; font-size: 19px;
+  outline: none; border-radius: 2px;
+}
+.gb-search-bar input::placeholder { color: #999; font-style: italic; }
+.gb-search-bar input:focus { border-color: #555; background: #fff; }
+.gb-categories {
+  padding: 12px 14px 14px;
+  background: #fafafa;
+  border-bottom: 1px solid #c4c4c4;
+}
+.gb-cat-title {
+  font-size: 13px; color: #707070;
+  letter-spacing: 0.18em; text-transform: uppercase;
+  margin-bottom: 10px;
+}
+.gb-cat-list {
+  display: flex; flex-wrap: wrap; gap: 10px;
+}
+.gb-cat {
+  font-size: 16px; color: #333;
+  cursor: pointer;
+  padding: 8px 14px;
+  background: #fff;
+  border: 1px solid #999;
+  border-radius: 3px;
+  -webkit-tap-highlight-color: transparent;
+}
+.gb-cat:active, .gb-cat.active {
+  background: #1a1a1a;
+  border-color: #1a1a1a;
+  color: #fff;
+}
+/* 2-column product grid, optimized for the 567px phone screen */
+.gb-listings {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  padding: 12px;
+  background: #e8e8e8;
+}
+.gb-product {
+  display: flex; flex-direction: column;
+  background: #ffffff;
+  border: 1px solid #c4c4c4;
+  border-radius: 3px;
+  padding: 10px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.gb-product:active { background: #f4f4f4; border-color: #888; }
+.gb-product-img {
+  width: 100%; height: 180px;
+  background: #1a1a1a;
+  border: 1px solid #c4c4c4;
+  overflow: hidden;
+  margin-bottom: 12px;
+  /* "seedy compressed jpg" feel */
+  filter: contrast(0.88) saturate(0.62) brightness(0.88) blur(0.3px);
+  image-rendering: pixelated;
+  position: relative;
+}
+.gb-product-img svg { width: 100%; height: 100%; display: block; }
+.gb-product-img img.gb-real-photo {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%; object-fit: cover;
+  display: block; z-index: 1;
+  /* fades in once loaded */
+  opacity: 0; transition: opacity 0.25s ease;
+}
+.gb-product-img img.gb-real-photo.gb-loaded { opacity: 1; }
+.gb-product-img::after {
+  /* faint grain overlay */
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.2' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23g)' opacity='0.30'/%3E%3C/svg%3E");
+  mix-blend-mode: overlay;
+}
+.gb-product-info {
+  display: flex; flex-direction: column;
+  gap: 3px; min-width: 0;
+}
+.gb-product-title {
+  font-size: 17px; font-weight: 700;
+  color: #2e6e22; letter-spacing: 0.01em;
+  line-height: 1.25;
+}
+.gb-product-desc {
+  font-size: 14px; color: #555; line-height: 1.4;
+  overflow: hidden;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+}
+.gb-product-rating { font-size: 14px; color: #b8860b; }
+.gb-product-rating span { color: #888; }
+.gb-product-vendor {
+  font-size: 13px; color: #777; font-style: italic;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.gb-product-price {
+  font-size: 22px; font-weight: 700;
+  color: #b8331a; letter-spacing: 0.02em;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed #c4c4c4;
+}
+.gb-empty {
+  padding: 30px 16px; text-align: center;
+  color: #888; font-style: italic; font-size: 14px;
+  grid-column: 1 / -1;
+}
+.gb-footer {
+  padding: 18px 16px 30px;
+  text-align: center;
+  font-size: 11.5px; color: #666;
+  letter-spacing: 0.12em;
+  border-top: 1px solid #c4c4c4;
+  background: #f4f4f4;
+}
+.gb-footer-warn {
+  margin-top: 8px;
+  color: #999;
+  font-size: 10px;
+  letter-spacing: 0.05em;
+}
+/* Satire disclaimer — small but legible. Sets intent clearly for both
+   players and any platform reviewing the project. */
+.gb-footer-disclaimer {
+  margin-top: 14px;
+  padding: 10px 12px;
+  border-top: 1px dashed #b0b0b0;
+  color: #555;
+  font-size: 11px;
+  font-style: italic;
+  line-height: 1.5;
+  letter-spacing: 0.02em;
+  text-transform: none;
+}
+/* ── Product detail modal — single reused overlay.
+   IMPORTANT: must be `display: none` when closed. Earlier version used
+   `position: absolute; inset: 0; translateY(100%)` which still occupied
+   the scrollable content area of .glimmerbay — scrolling down through
+   listings would scroll INTO the empty modal and leave a weird gray/white
+   block mid-feed. display:none takes it out of layout entirely. */
+.gb-modal {
+  display: none;
+  position: absolute; inset: 0;
+  background: #ffffff;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  z-index: 50;
+  scrollbar-width: none;
+  animation: gb-modal-in 0.24s cubic-bezier(0.25,0.46,0.45,0.94);
+}
+.gb-modal::-webkit-scrollbar { display: none; }
+.gb-modal.open { display: block; }
+@keyframes gb-modal-in {
+  from { opacity: 0; transform: translateY(18px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.gb-modal-back {
+  position: sticky; top: 0;
+  background: #1a1a1a;
+  color: #fff;
+  border-bottom: 2px solid #8b0000;
+  padding: 18px 20px;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  z-index: 2;
+  -webkit-tap-highlight-color: transparent;
+  display: flex; align-items: center; gap: 12px;
+}
+.gb-modal-back::before {
+  content: '\2190'; /* leftward arrow */
+  font-size: 24px;
+  font-weight: 400;
+  line-height: 1;
+}
+.gb-modal-back:active { background: #333; }
+.gb-modal-imgwrap {
+  width: 100%;
+  background: #1a1a1a;
+  padding: 0;
+}
+.gb-modal-img {
+  width: 100%; height: 280px;
+  background-color: #1a1a1a;
+  background-size: cover; background-position: center;
+  filter: contrast(0.88) saturate(0.62) brightness(0.88) blur(0.3px);
+  image-rendering: pixelated;
+}
+.gb-modal-body { padding: 18px 16px 30px; }
+.gb-modal-title {
+  font-size: 25px; font-weight: 700;
+  color: #2e6e22; letter-spacing: 0.01em;
+  line-height: 1.25; margin-bottom: 10px;
+}
+.gb-modal-vendor-row {
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: 15px; margin-bottom: 16px;
+  padding-bottom: 14px; border-bottom: 1px solid #c4c4c4;
+}
+.gb-modal-vendor { color: #777; font-style: italic; }
+.gb-modal-rating { color: #b8860b; }
+.gb-modal-rating span { color: #888; }
+.gb-modal-price {
+  font-size: 36px; font-weight: 700;
+  color: #b8331a; letter-spacing: 0.02em;
+  margin-bottom: 8px;
+}
+.gb-modal-stock { font-size: 14px; color: #2e6e22; margin-bottom: 18px; letter-spacing: 0.04em; }
+.gb-modal-desc {
+  font-size: 17px; color: #1a1a1a; line-height: 1.55;
+  margin-bottom: 20px;
+}
+.gb-modal-meta {
+  background: #fafafa;
+  border: 1px solid #c4c4c4;
+  padding: 14px 16px;
+  margin-bottom: 20px;
+  font-size: 15px; color: #444; line-height: 1.75;
+}
+.gb-modal-meta b { color: #1a1a1a; font-weight: 600; }
+.gb-modal-buy {
+  display: block; width: 100%;
+  padding: 16px;
+  background: #1a1a1a;
+  color: #fff;
+  border: none;
+  font-family: inherit; font-size: 17px; font-weight: 700;
+  letter-spacing: 0.12em; text-transform: uppercase;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  margin-bottom: 20px;
+}
+.gb-modal-buy:active { background: #333; }
+.gb-modal-reviews-title {
+  font-size: 13px; color: #707070;
+  letter-spacing: 0.18em; text-transform: uppercase;
+  margin-bottom: 10px;
+}
+.gb-modal-review {
+  border-top: 1px solid #e0e0e0;
+  padding: 12px 0;
+  font-size: 15px;
+  line-height: 1.55;
+}
+.gb-modal-review-head { font-size: 14px; color: #777; margin-bottom: 5px; }
+.gb-modal-review-stars { color: #b8860b; }
+.gb-modal-review-body { color: #1a1a1a; }
+
+/* ════════════════════ NOTES VIEW ════════════════════ */
+#notesView { background: #fafaf5; z-index: 7; }
+#notesView .status-bar { background: #fafaf5; }
+#notesView .sb-time { color: #1c1c1e; }
+.notes-nav {
+  position: absolute; top: 44px; left: 0; right: 0; height: 77px;
+  background: rgba(250,250,245,0.97);
+  border-bottom: 0.5px solid #c8c7c2;
+  display: flex; align-items: center; justify-content: center;
+  padding: 0 20px; z-index: 20;
+}
+.notes-title { font-size: 30px; font-weight: 600; color: #1c1c1e; }
+.notes-body {
+  position: absolute; top: 121px; left: 0; right: 0; bottom: 0;
+  overflow: hidden;
+}
+.notes-body::before {
+  content: ''; position: absolute; top: 0; bottom: 0; left: 54px;
+  width: 1px; background: rgba(255,100,100,0.45);
+  pointer-events: none; z-index: 1;
+}
+.notes-textarea {
+  position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+  width: 100%; border: none; outline: none;
+  font-size: 25px; line-height: 46px; color: #1c1c1e;
+  font-family: 'Noteworthy','Palatino Linotype',Georgia,serif;
+  resize: none; padding: 20px 20px 20px 68px;
+  overflow-y: auto; -webkit-overflow-scrolling: touch;
+  scrollbar-width: none; box-sizing: border-box; z-index: 2;
+  background-color: #fafaf5;
+  background-image: repeating-linear-gradient(
+    transparent, transparent 45px, #d0cfca 45px, #d0cfca 46px);
+  background-position: 0 20px;
+  background-attachment: local;
+}
+.notes-textarea::-webkit-scrollbar { display: none; }
+
+/* ════════════════════ IG / ANOMALY FEED ════════════════════ */
+#igView { background: #fafafa; z-index: 9; }
+#igView .status-bar { background: #fff; border-bottom: 0.5px solid #dbdbdb; }
+#igView .sb-time { color: #000; }
+.ig-corr-bar {
+  position: absolute; top: 44px; left: 0;
+  height: 3px; width: 0%; background: #8b0000;
+  z-index: 50; transition: width 0.4s ease;
+}
+.ig-corr-bar.pulsing { animation: corr-pulse 0.7s ease-in-out infinite; }
+@keyframes corr-pulse {
+  0%,100% { opacity: 1; } 50% { opacity: 0.4; }
+}
+.ig-top-nav {
+  position: absolute; top: 44px; left: 0; right: 0; height: 60px;
+  background: #fff; border-bottom: 0.5px solid #dbdbdb;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 14px; z-index: 40;
+}
+.ig-home-btn {
+  font-size: 42px; color: #262626; cursor: pointer; line-height: 1;
+  -webkit-tap-highlight-color: transparent; padding: 4px 6px;
+}
+.ig-wordmark {
+  position: absolute; left: 50%; transform: translateX(-50%);
+  font-size: 32px; font-weight: 700; color: #262626;
+  font-family: 'Dancing Script', 'Billabong', cursive, sans-serif;
+  letter-spacing: -0.5px;
+}
+.ig-nav-right { display: flex; align-items: center; gap: 18px; }
+/* HUD — sits in the iOS status bar between the clock and battery, single row,
+   nice and visible. position fixed-to-status-bar via the screen's stacking. */
+.ig-hud {
+  position: absolute; top: 0; left: 50%;
+  transform: translateX(-50%);
+  z-index: 45;
+  display: flex; align-items: center; gap: 10px;
+  height: 44px; pointer-events: none;
+  padding: 0 14px;
+  font-weight: 700; letter-spacing: 0.02em;
+}
+.ig-hud-score { font-size: 19px; color: #000; }
+.ig-hud-combo { font-size: 15px; color: rgba(139,0,0,0.85); font-weight: 700; }
+.ig-hud-combo:empty { display: none; }
+.ig-feed-scroll {
+  position: absolute; top: 104px; left: 0; right: 0; bottom: 0;
+  overflow-y: auto; overflow-x: hidden;
+  -webkit-overflow-scrolling: touch; background: #fafafa;
+  scrollbar-width: none; touch-action: pan-y;
+}
+.ig-feed-scroll::-webkit-scrollbar { display: none; }
+.ig-post { background: #fff; margin-bottom: 0; border-bottom: 10px solid #fff; position: relative; }
+.ig-post-header {
+  display: flex; align-items: center; padding: 10px 14px; gap: 12px;
+}
+.ig-avatar {
+  width: 42px; height: 42px; border-radius: 50%;
+  background: linear-gradient(45deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888);
+  flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+  font-size: 16px; font-weight: 700; color: #fff; overflow: hidden;
+}
+.ig-post-username {
+  flex: 1; font-size: 17px; font-weight: 600; color: #262626;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.ig-post-dots {
+  font-size: 20px; color: #262626; cursor: pointer;
+  padding: 4px 6px; letter-spacing: 2px;
+  -webkit-tap-highlight-color: transparent;
+}
+.ig-img-wrap {
+  width: 567px; height: 709px;
+  overflow: hidden; position: relative; background: #111;
+}
+.ig-img-wrap img {
+  width: 100%; height: 100%; object-fit: cover; display: block;
+  pointer-events: none; -webkit-user-drag: none;
+  transition: filter 0.4s ease;
+}
+.ig-actions {
+  display: flex; align-items: center; padding: 4px 10px 0; gap: 14px;
+}
+.ig-act {
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
+  display: flex; align-items: center; justify-content: center;
+  padding: 8px; min-width: 48px; min-height: 48px;
+  transition: transform 0.12s ease;
+}
+.ig-act:active { transform: scale(0.88); }
+.ig-act.dimmed { opacity: 0.35; pointer-events: none; }
+.ig-spacer { margin-left: auto; }
+.ig-post-text { padding: 0 14px 12px; }
+.ig-likes-line { font-size: 19px; font-weight: 600; color: #262626; margin-bottom: 4px; }
+.ig-caption-line { font-size: 19px; color: #262626; line-height: 1.4; margin-bottom: 4px; }
+.cap-user { font-weight: 600; }
+/* Corrupted caption rendering — every visible cue says "this is NOT IG":
+   right-aligned, uppercased, monospace, wider letter spacing, no username
+   prefix, slight red tint. Anyone scanning the feed will catch this. */
+.ig-caption-line.cap-anom-rot {
+  text-align: right;
+  text-transform: uppercase;
+  font-family: 'Courier New', Courier, monospace;
+  letter-spacing: 0.12em;
+  color: #5a0202;
+  white-space: pre-line;
+  padding: 4px 0;
+  border-top: 1px dashed rgba(139,0,0,0.35);
+  border-bottom: 1px dashed rgba(139,0,0,0.35);
+}
+.ig-comments-line { font-size: 17px; color: #8e8e8e; margin-bottom: 3px; }
+.ig-time-line { font-size: 14px; color: #8e8e8e; text-transform: uppercase; letter-spacing: 0.04em; }
+.ig-post.acted { opacity: 0.72; }
+.ig-pop {
+  position: fixed; z-index: 9999;
+  font-size: 46px; font-weight: 900;
+  pointer-events: none; white-space: nowrap; text-align: center;
+  transform: translate(-50%, -50%);
+  letter-spacing: 0.03em;
+  text-shadow: 0 2px 16px rgba(0,0,0,0.35);
+  animation: ig-pop 1.1s ease forwards;
+}
+/* REBUKE label is wordier ("REBUKE +25 ×2") — needs to fit within the
+   phone screen on small iframe widths. */
+.ig-pop.rebuke { font-size: 30px; }
+@keyframes.ig-pop {
+  0%   { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(-40px); }
+}
+@keyframes scr-glitch {
+  0%,100% { transform: none; filter: none; }
+  12% { transform: translate(-3px,1px); filter: hue-rotate(180deg); }
+  25% { transform: translate(3px,-1px); filter: none; }
+  37% { transform: translate(-2px,2px); filter: brightness(1.3); }
+  50% { transform: none; filter: none; }
+}
+.ig-glitch-burst { animation: scr-glitch 0.38s ease; }
+
+/* ── Anomaly CSS effects ── */
+.ig-post--text-anom .ig-img-wrap::after {
+  content: ''; position: absolute; inset: 0;
+  border-left: 3px solid rgba(160,0,0,0.45);
+  pointer-events: none; z-index: 4;
+}
+.ig-post--text-anom .ig-post-header { background: rgba(80,0,0,0.04); }
+/* Scanline overlay — uses ::before so it can coexist with anom-noise (::after).
+   Softer alpha than before so it reads as subtle CRT lines, not a heavy filter. */
+.anom-scanlines::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+  background: repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.12) 2px,rgba(0,0,0,0.12) 3px);
+  pointer-events: none; z-index: 3; mix-blend-mode: multiply;
+  animation: scan-scroll 0.25s linear infinite;
+}
+@keyframes scan-scroll { from { background-position: 0 0; } to { background-position: 0 30px; } }
+/* Noise / static overlay — drawn straight (no blend mode), so it actually
+   appears regardless of underlying photo brightness. */
+.anom-noise::after {
+  content: ''; position: absolute; inset: 0; pointer-events: none; z-index: 4;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.15' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3CfeComponentTransfer%3E%3CfeFuncA type='linear' slope='1.8' intercept='-0.1'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Crect width='240' height='240' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");
+  background-size: 240px 240px;
+  animation: noise-drift 0.12s steps(6, end) infinite;
+  opacity: 0.88;
+}
+@keyframes noise-drift {
+  0%   { background-position: 0 0; }
+  16%  { background-position: -42px 28px; }
+  33%  { background-position: 31px -19px; }
+  50%  { background-position: -18px -38px; }
+  66%  { background-position: 40px 17px; }
+  83%  { background-position: -34px 40px; }
+  100% { background-position: 18px 32px; }
+}
+@keyframes img-bw-drain {
+  0%   { filter: saturate(1) brightness(1); }
+  40%  { filter: saturate(0.3) brightness(0.9); }
+  80%  { filter: saturate(0) brightness(0.7); }
+  100% { filter: saturate(0) brightness(0.35); }
+}
+@keyframes img-drain {
+  0%   { filter: saturate(1) brightness(1); }
+  65%  { filter: saturate(0) brightness(0.85); }
+  100% { filter: saturate(0) brightness(0.6) contrast(1.4); }
+}
+@keyframes img-shake {
+  0%,100% { transform: none; }
+  10% { transform: translate(-5px,2px); } 20% { transform: translate(5px,-3px); }
+  30% { transform: translate(-4px,-2px); } 40% { transform: translate(4px,3px); }
+  50% { transform: none; }
+}
+@keyframes img-breathe {
+  0%,100% { object-position: center; }
+  33%      { object-position: 53% 50%; }
+  66%      { object-position: 47% 51%; }
+}
+.anom-bw-drain img  { animation: img-bw-drain 18s ease forwards; }
+.anom-time-drain img { animation: img-drain 14s ease forwards; }
+.anom-time-breathe img { animation: img-breathe 3.5s ease-in-out infinite; }
+.anom-time-flip img { transform: scaleY(-1); transition: transform 0.5s ease; }
+/* Anomaly 7: creep zoom */
+.anom-zoom img { animation: img-creep 28s ease forwards; }
+@keyframes img-creep { 0% { transform: scale(1); } 100% { transform: scale(1.45); } }
+/* Slow cross-fade overlay used for the 9girlback → reptilian morph.
+   Sits on top of the original photo and slowly opacity-fades in once
+   the post's like/report row scrolls fully into view. */
+.anom-fade-overlay {
+  position: absolute; inset: 0; z-index: 2;
+  opacity: 0;
+  transition: opacity 6s ease-in;
+  pointer-events: none;
+}
+.anom-fade-overlay img {
+  width: 100%; height: 100%; object-fit: cover; display: block;
+}
+.anom-fade-overlay.active { opacity: 1; }
+
+/* Fast-blink overlay (eyes close / eyes open). Identical layout to the slow
+   fade overlay but with a much faster opacity transition so the swap reads
+   as a real-feeling blink. JS toggles the .blink class on a random cadence. */
+.anom-blink-overlay {
+  position: absolute; inset: 0; z-index: 2;
+  opacity: 0;
+  transition: opacity 0.13s ease-in-out;
+  pointer-events: none;
+}
+.anom-blink-overlay img {
+  width: 100%; height: 100%; object-fit: cover; display: block;
+}
+.anom-blink-overlay.blink { opacity: 1; }
+
+/* Strobe overlay — instant on/off (no easing) so each flash reads as a real
+   stutter rather than a soft pulse. JS toggles the .on class in fast bursts. */
+.anom-strobe-overlay {
+  position: absolute; inset: 0; z-index: 2;
+  opacity: 0;
+  transition: opacity 0.03s linear;
+  pointer-events: none;
+}
+.anom-strobe-overlay img {
+  width: 100%; height: 100%; object-fit: cover; display: block;
+}
+.anom-strobe-overlay.on { opacity: 1; }
+
+/* Pulse overlay — slow recurring fade in / hold / fade out. Same look as
+   the one-shot fade-in, but JS toggles the .active class on a loop so the
+   image keeps cycling back. */
+.anom-pulse-overlay {
+  position: absolute; inset: 0; z-index: 2;
+  opacity: 0;
+  transition: opacity 5s ease-in-out;
+  pointer-events: none;
+}
+.anom-pulse-overlay img {
+  width: 100%; height: 100%; object-fit: cover; display: block;
+}
+.anom-pulse-overlay.active { opacity: 1; }
+
+/* Anomaly: time bleed (chromatic split). Uses `alternate` so it oscillates
+   smoothly between two RGB-split states; previous version used `steps(1)`
+   which collapsed the animation to a single static frame. */
+.anom-time-bleed img {
+  transition: none;
+  animation: img-bleed 0.18s ease-in-out infinite alternate;
+}
+@keyframes img-bleed {
+  0%   { filter: drop-shadow(4px 0 0 rgba(255,0,60,0.75)) drop-shadow(-4px 0 0 rgba(0,220,255,0.65)); }
+  100% { filter: drop-shadow(-4px 0 0 rgba(255,0,60,0.55)) drop-shadow(4px 0 0 rgba(0,180,255,0.55)); }
+}
+/* Anomaly 11: void */
+.anom-void { background: #0a0a0a !important; }
+.anom-void img { opacity: 0; }
+.anom-void::before {
+  content: ''; position: absolute; inset: 0; z-index: 2;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)' opacity='0.15'/%3E%3C/svg%3E");
+  background-size: 200px 200px;
+  animation: static-drift 0.08s steps(1) infinite;
+}
+@keyframes static-drift {
+  0%  { background-position: 0 0; } 25% { background-position: -10px 5px; }
+  50% { background-position: 8px -3px; } 75% { background-position: -5px -8px; }
+}
+/* Anomaly 13: blink */
+.anom-blink-avatar { animation: av-blink 4s ease-in-out infinite; }
+@keyframes av-blink {
+  0%,88%,100% { transform: scaleY(1); } 90%,94% { transform: scaleY(0.05); }
+  92% { transform: scaleY(1); }
+}
+/* Anomaly 9: pre-filled heart */
+@keyframes heart-prebeat {
+  0%,100% { transform: scale(1); } 50% { transform: scale(1.18); }
+}
+.heart-prefilled { animation: heart-prebeat 1.4s ease-in-out infinite; }
+
+/* Heart-pop — positive feedback for correctly hearting a normal post.
+   Scale-up overshoot with a soft red glow ring expanding outward. No screen
+   shake, no chromatic distortion. Feels like a "like" on actual Instagram. */
+@keyframes heart-pop-scale {
+  0%   { transform: scale(1); }
+  35%  { transform: scale(1.45); }
+  65%  { transform: scale(0.92); }
+  100% { transform: scale(1); }
+}
+@keyframes heart-pop-ring {
+  0%   { transform: translate(-50%,-50%) scale(0.3); opacity: 0.55; }
+  100% { transform: translate(-50%,-50%) scale(2.4); opacity: 0; }
+}
+.heart-pop { animation: heart-pop-scale 0.52s cubic-bezier(0.34,1.56,0.64,1); position: relative; }
+.heart-pop::after {
+  content: ''; position: absolute; left: 50%; top: 50%;
+  width: 60px; height: 60px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(237,73,86,0.55) 0%, rgba(237,73,86,0) 70%);
+  transform: translate(-50%,-50%) scale(0.3);
+  pointer-events: none;
+  animation: heart-pop-ring 0.5s ease-out;
+}
+
+/* ── Tutorial overlay ── */
+.ig-tutorial {
+  position: absolute; top: 104px; left: 0; right: 0; bottom: 0;
+  background: #fff; z-index: 65;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 20px; padding: 36px 28px;
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
+  overflow-y: auto;
+}
+.ig-tutorial.hidden { display: none !important; }
+.ig-tut-row { display: flex; align-items: center; gap: 18px; }
+.ig-tut-text { color: #111; font-size: 26px; line-height: 1.5; }
+.ig-tut-text b { color: #ed4956; }
+.ig-tut-text.b-green b { color: #007a1f; }
+.ig-tut-tap { color: #888; font-size: 18px; letter-spacing: 0.2em; text-transform: uppercase; margin-top: 14px; }
+.ig-tut-divider { width: 100%; height: 1px; background: #e0e0e0; }
+.ig-tut-anomlist { width: 100%; }
+.ig-tut-anomlist-title { font-size: 17px; font-weight: 700; color: #8b0000; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 10px; }
+.ig-tut-anomlist ul { padding-left: 22px; }
+.ig-tut-anomlist li { font-size: 20px; color: #333; line-height: 1.8; list-style: disc; }
+.ig-tut-warning {
+  width: 100%;
+  margin-top: 4px;
+  padding: 14px 16px;
+  border: 1px solid rgba(139,0,0,0.55);
+  background: rgba(139,0,0,0.05);
+  color: #5a0202;
+  font-size: 16px;
+  line-height: 1.5;
+  text-align: center;
+}
+.ig-tut-warning-title {
+  display: block;
+  font-size: 13.5px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #8b0000;
+  margin-bottom: 7px;
+}
+/* Playtest-only dev-test button on the tutorial — loads a fixed sequential
+   feed with every anomaly edit so you can scroll through and check them. */
+.ig-tut-dev-btn {
+  margin-top: 8px;
+  padding: 10px 18px;
+  border: 1.5px solid #444;
+  background: #1a1a1a;
+  color: #d8d4b0;
+  font-family: 'Courier New', monospace;
+  font-size: 13px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  border-radius: 2px;
+}
+.ig-tut-dev-btn:active { background: #2a2a2a; color: #ed4956; }
+
+/* ── Game over ── */
+.ig-gameover {
+  position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+  background: #fff; z-index: 70;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  text-align: center; padding: 48px; gap: 18px;
+}
+.ig-gameover.hidden { display: none !important; }
+.ig-go-line1 {
+  font-size: 30px; font-weight: 300; letter-spacing: 0.28em;
+  text-transform: uppercase; color: #8b0000; animation: go-fade 2.5s ease forwards;
+}
+.ig-go-line2 {
+  font-size: 16px; letter-spacing: 0.12em; color: #333;
+  animation: go-fade 2.5s 0.8s ease both;
+}
+.ig-go-scores {
+  margin-top: 8px; color: #1a1a1a; font-size: 18px;
+  line-height: 2.2; letter-spacing: 0.08em;
+  animation: go-fade 1s 1.5s ease both;
+}
+.ig-go-restart {
+  margin-top: 18px; padding: 14px 36px;
+  border: 1.5px solid #8b0000; color: #8b0000;
+  font-size: 13px; letter-spacing: 0.25em; text-transform: uppercase;
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
+  transition: border-color 0.2s, color 0.2s;
+  animation: go-fade 1s 2.2s ease both;
+}
+.ig-go-restart:active { color: #c00; border-color: #c00; }
+@keyframes go-fade {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: none; }
+}
+/* ── Leaderboard slot inside the gameover screen ── */
+.ig-go-lb {
+  width: 100%; max-width: 460px;
+  margin-top: 14px;
+  animation: go-fade 1s 1.7s ease both;
+}
+.ig-go-lb-prompt {
+  font-size: 13px; letter-spacing: 0.14em; text-transform: uppercase;
+  color: #555; text-align: center; margin-bottom: 10px;
+}
+.ig-go-lb-prompt b { color: #8b0000; font-weight: 700; }
+.ig-go-lb-form {
+  display: flex; align-items: stretch; gap: 0;
+  border: 1.5px solid #8b0000; background: #fff;
+}
+.ig-go-lb-at {
+  background: #8b0000; color: #fff;
+  padding: 0 12px;
+  font-size: 18px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+}
+.ig-go-lb-input {
+  flex: 1; min-width: 0;
+  border: none; outline: none;
+  padding: 12px 10px;
+  font-family: inherit; font-size: 16px;
+  color: #1a1a1a; background: transparent;
+  text-transform: lowercase;
+}
+.ig-go-lb-submit {
+  border: none; background: #1a1a1a; color: #fff;
+  padding: 0 16px;
+  font-family: inherit; font-size: 13px; font-weight: 700;
+  letter-spacing: 0.18em; text-transform: uppercase;
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.ig-go-lb-submit:active { background: #8b0000; }
+.ig-go-lb-submit:disabled { background: #888; cursor: default; }
+.ig-go-lb-hint {
+  margin-top: 8px; text-align: center;
+  font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase;
+  color: #777;
+}
+.ig-go-lb-err {
+  margin-top: 8px; text-align: center;
+  font-size: 12px; color: #8b0000; font-style: italic;
+}
+.ig-go-lb-loading {
+  text-align: center; color: #8b0000;
+  font-size: 13px; letter-spacing: 0.18em; text-transform: uppercase;
+  padding: 20px 0;
+}
+.ig-go-lb-title {
+  text-align: center;
+  font-size: 13px; letter-spacing: 0.22em; text-transform: uppercase;
+  color: #8b0000; font-weight: 700;
+  padding-bottom: 8px; border-bottom: 1px solid #c4c4c4;
+  margin-bottom: 4px;
+}
+.ig-go-lb-list { display: flex; flex-direction: column; }
+.ig-go-lb-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 7px 6px;
+  font-size: 14px; color: #1a1a1a;
+  border-bottom: 1px solid #ececec;
+}
+.ig-go-lb-row:last-child { border-bottom: none; }
+.ig-go-lb-row .rank {
+  flex: 0 0 38px;
+  font-weight: 700; color: #8b0000;
+  font-size: 13px; letter-spacing: 0.04em;
+}
+.ig-go-lb-row .ig {
+  flex: 1; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.ig-go-lb-row .score {
+  flex: 0 0 auto;
+  font-weight: 700; font-variant-numeric: tabular-nums;
+}
+.ig-go-lb-row.mine {
+  background: rgba(139,0,0,0.10);
+  color: #8b0000;
+}
+.ig-go-lb-row.mine .rank,
+.ig-go-lb-row.mine .ig,
+.ig-go-lb-row.mine .score { color: #8b0000; }
+
+/* ── Playtest debug info button ── */
+.ig-debug-btn {
+  width: 26px; height: 26px; border-radius: 50%;
+  background: rgba(0,0,0,0.10); border: 1.5px solid rgba(0,0,0,0.20);
+  color: #888; font-size: 13px; font-weight: 700; line-height: 1;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; flex-shrink: 0; margin-left: 6px;
+  -webkit-tap-highlight-color: transparent; transition: background 0.15s;
+}
+.ig-debug-btn:active { background: rgba(0,0,0,0.22); }
+.ig-debug-panel {
+  background: rgba(8,8,8,0.93); color: #ccc;
+  padding: 9px 14px 11px; font-size: 12.5px;
+  line-height: 1.75; font-family: monospace;
+  border-bottom: 2px solid #8b0000;
+}
+.ig-debug-panel.hidden { display: none; }
+.ig-debug-panel .dbg-bad  { color: #ff6060; font-weight: 700; font-size: 13.5px; }
+.ig-debug-panel .dbg-good { color: #5dde74; font-weight: 700; font-size: 13.5px; }
+
+/* ── Notes ── */
+/* (already covered above) */
+
+/* ── Safari icon ── */
+/* (covered in dash view) */
+
+</style>
+</head>
+<body>
+<div class="scale-wrapper">
+  <div class="iphone-wrapper" id="iphoneWrapper">
+    <div class="screen" id="screenEl">
+
+      <!-- ════════ GRID VIEW ════════ -->
+      <div class="view" id="gridView">
+        <div class="status-bar">
+          <span class="sb-time" id="gridTime">9:41</span>
+          <span class="sb-icons" id="gridIcons"></span>
+        </div>
+        <div class="grid-nav">
+          <span class="g-btn" id="gBtnLeft">Albums</span>
+          <span class="g-title" id="gNavTitle">Camera Roll</span>
+          <span class="g-btn right" id="gBtnRight">Select</span>
+        </div>
+        <div class="grid-scroll" id="gridScroll">
+          <div class="photo-grid" id="photoGrid"></div>
+        </div>
+      </div>
+
+      <!-- ════════ PHOTO VIEW ════════ -->
+      <div class="view" id="photoView">
+        <div class="photo-carousel" id="photoCarousel">
+          <div class="photo-track" id="photoTrack"></div>
+        </div>
+        <div class="status-bar">
+          <span class="sb-time" id="photoTime">9:41</span>
+          <span class="sb-icons" id="photoIcons"></span>
+        </div>
+        <div class="photo-nav" id="photoNav">
+          <span class="pn-back" id="photoBack">
+            <svg width="11" height="20" viewBox="0 0 11 20" fill="none">
+              <path d="M9.5 1.5L1.5 10L9.5 18.5" stroke="#fff" stroke-width="2.3"
+                    stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            Camera Roll
+          </span>
+          <span class="pn-title" id="photoCounter">1 of 24</span>
+        </div>
+        <div class="scrubber" id="photoScrubber">
+          <div class="scrub-scroll" id="scrubScroll"></div>
+        </div>
+      </div>
+
+      <!-- ════════ DASH VIEW ════════ -->
+      <div class="view hidden" id="dashView">
+        <div class="status-bar">
+          <span class="sb-time" id="dashTime">9:41</span>
+          <span class="sb-icons" id="dashIcons"></span>
+        </div>
+        <img class="dash-bg" src="https://cdn.shopify.com/s/files/1/0734/4671/9780/files/background.jpg?v=1778704790" alt="">
+        <div class="dash-icons-area">
+
+          <!-- Camera Roll / Photos -->
+          <div class="app-icon" id="dashCameraRoll">
+            <div class="app-icon-img" style="background:#fff;">
+              <svg width="110" height="110" viewBox="0 0 110 110">
+                <rect width="110" height="110" fill="#fff"/>
+                <!-- 8-petal pinwheel -->
+                <ellipse cx="55" cy="30" rx="10" ry="18" fill="#FF6B6B" transform="rotate(0,55,55)"/>
+                <ellipse cx="55" cy="30" rx="10" ry="18" fill="#FF9500" transform="rotate(45,55,55)"/>
+                <ellipse cx="55" cy="30" rx="10" ry="18" fill="#FFCC00" transform="rotate(90,55,55)"/>
+                <ellipse cx="55" cy="30" rx="10" ry="18" fill="#4CD964" transform="rotate(135,55,55)"/>
+                <ellipse cx="55" cy="30" rx="10" ry="18" fill="#34AADC" transform="rotate(180,55,55)"/>
+                <ellipse cx="55" cy="30" rx="10" ry="18" fill="#007AFF" transform="rotate(225,55,55)"/>
+                <ellipse cx="55" cy="30" rx="10" ry="18" fill="#5856D6" transform="rotate(270,55,55)"/>
+                <ellipse cx="55" cy="30" rx="10" ry="18" fill="#FF2D55" transform="rotate(315,55,55)"/>
+                <circle cx="55" cy="55" r="14" fill="#fff"/>
+              </svg>
+            </div>
+            <span class="app-icon-label">Photos</span>
+          </div>
+
+          <!-- Wickedgram (Anomaly Feed) -->
+          <div class="app-icon" id="dashInstagram">
+            <div class="app-icon-img" style="background:#0d0000; border-radius:24px; overflow:hidden; padding:0; display:flex; align-items:center; justify-content:center;">
+              <svg width="110" height="110" viewBox="0 0 110 110" fill="none">
+                <rect width="110" height="110" fill="#0d0000"/>
+                <!-- Camera body outer border -->
+                <rect x="7" y="22" width="96" height="73" rx="12" stroke="#cc0000" stroke-width="3" fill="none"/>
+                <!-- Top bump / strap holder (centered, retro polaroid style) -->
+                <path d="M37 22 L37 13 Q37 9 41 9 L69 9 Q73 9 73 13 L73 22"
+                      stroke="#cc0000" stroke-width="3" fill="none" stroke-linejoin="round"/>
+                <!-- Outer lens ring -->
+                <circle cx="54" cy="60" r="23" stroke="#cc0000" stroke-width="3" fill="none"/>
+                <!-- Mid lens ring -->
+                <circle cx="54" cy="60" r="15" stroke="#880000" stroke-width="2" fill="none"/>
+                <!-- Innermost lens (iris) -->
+                <circle cx="54" cy="60" r="7" fill="#cc0000"/>
+                <!-- Lens highlight -->
+                <circle cx="50" cy="56" r="3" fill="#ff5555" opacity="0.35"/>
+                <!-- Viewfinder box (top right, retro IG style) -->
+                <rect x="73" y="28" width="22" height="16" rx="3" stroke="#cc0000" stroke-width="2.5" fill="none"/>
+                <!-- Flash bulb (top left) -->
+                <circle cx="19" cy="36" r="6" stroke="#cc0000" stroke-width="2" fill="#200000"/>
+                <circle cx="17" cy="34" r="2" fill="#cc0000" opacity="0.55"/>
+              </svg>
+            </div>
+            <span class="app-icon-label">Wickedgram</span>
+          </div>
+
+          <!-- Safari -->
+          <div class="app-icon" id="dashSafari">
+            <div class="app-icon-img" style="background:linear-gradient(145deg,#1a8cec,#0456c0);">
+              <svg width="84" height="84" viewBox="0 0 84 84">
+                <circle cx="42" cy="42" r="36" fill="none" stroke="rgba(255,255,255,0.35)" stroke-width="2"/>
+                <g stroke="rgba(255,255,255,0.65)" stroke-width="1.8">
+                  <line x1="42" y1="8"  x2="42" y2="15"/><line x1="42" y1="69" x2="42" y2="76"/>
+                  <line x1="8"  y1="42" x2="15" y2="42"/><line x1="69" y1="42" x2="76" y2="42"/>
+                </g>
+                <text x="42" y="23" text-anchor="middle" font-size="9.5" fill="#fff" font-family="Helvetica Neue" font-weight="700">N</text>
+                <text x="42" y="67" text-anchor="middle" font-size="9.5" fill="rgba(255,255,255,0.7)" font-family="Helvetica Neue" font-weight="700">S</text>
+                <text x="16" y="45.5" text-anchor="middle" font-size="9.5" fill="rgba(255,255,255,0.7)" font-family="Helvetica Neue" font-weight="700">W</text>
+                <text x="68" y="45.5" text-anchor="middle" font-size="9.5" fill="rgba(255,255,255,0.7)" font-family="Helvetica Neue" font-weight="700">E</text>
+                <polygon points="42,14 44.5,42 42,40 39.5,42" fill="#ff3b30"/>
+                <polygon points="42,70 44.5,42 42,44 39.5,42" fill="rgba(255,255,255,0.9)"/>
+                <circle cx="42" cy="42" r="3.5" fill="#fff"/>
+              </svg>
+            </div>
+            <span class="app-icon-label">Safari</span>
+          </div>
+
+          <!-- Notes -->
+          <div class="app-icon" id="dashNotes">
+            <div class="app-icon-img" style="background:linear-gradient(145deg,#ffd60a,#f5c400);">
+              <svg width="80" height="80" viewBox="0 0 80 80">
+                <rect x="10" y="14" width="60" height="60" rx="4" fill="#fffef0"/>
+                <line x1="22" y1="18" x2="22" y2="70" stroke="#ff6b6b" stroke-width="1.5" opacity="0.8"/>
+                <line x1="26" y1="32" x2="66" y2="32" stroke="#a8d8ea" stroke-width="1.2"/>
+                <line x1="26" y1="42" x2="66" y2="42" stroke="#a8d8ea" stroke-width="1.2"/>
+                <line x1="26" y1="52" x2="66" y2="52" stroke="#a8d8ea" stroke-width="1.2"/>
+                <line x1="26" y1="62" x2="66" y2="62" stroke="#a8d8ea" stroke-width="1.2"/>
+              </svg>
+            </div>
+            <span class="app-icon-label">Notes</span>
+          </div>
+
+        </div><!-- /dash-icons-area -->
+      </div><!-- /dashView -->
+
+      <!-- ════════ SAFARI VIEW (now: GlimmerBay onion marketplace) ════════ -->
+      <div class="view hidden" id="safariView">
+        <div class="status-bar">
+          <span class="sb-time" id="safariTime">9:41</span>
+          <span class="sb-icons" id="safariIcons"></span>
+        </div>
+        <div class="safari-top-nav">
+          <div class="safari-url-bar">
+            <span class="safari-tor-badge">tor</span>
+            <span class="safari-url-text">glimmerbay.onion</span>
+          </div>
+        </div>
+        <div class="glimmerbay" id="glimmerbayPage">
+          <div class="gb-header">
+            <div class="gb-logo">GlimmerBay</div>
+            <div class="gb-tagline">anonymous marketplace &middot; tor hidden service v3</div>
+          </div>
+          <div class="gb-account">
+            <span>logged in: <b>anon_47291</b></span>
+            <span class="gb-cart">cart [0]</span>
+          </div>
+          <div class="gb-search-bar">
+            <input type="text" id="gbSearch" placeholder="search products, vendors, listings&hellip;" autocomplete="off" />
+          </div>
+          <div class="gb-categories">
+            <div class="gb-cat-title">browse by category</div>
+            <div class="gb-cat-list">
+              <span class="gb-cat active" data-cat="all">all</span>
+              <span class="gb-cat" data-cat="stimulants">stimulants</span>
+              <span class="gb-cat" data-cat="psychedelics">psychedelics</span>
+              <span class="gb-cat" data-cat="cannabis">cannabis</span>
+              <span class="gb-cat" data-cat="opiates">opiates</span>
+              <span class="gb-cat" data-cat="dissociatives">dissociatives</span>
+              <span class="gb-cat" data-cat="pharmaceuticals">pharma</span>
+              <span class="gb-cat" data-cat="research">research chems</span>
+            </div>
+          </div>
+          <div class="gb-listings" id="gbListings"></div>
+          <!-- Product detail modal (single reused overlay) -->
+          <div class="gb-modal" id="gbModal">
+            <div class="gb-modal-back" id="gbModalBack">back to listings</div>
+            <div class="gb-modal-imgwrap">
+              <div class="gb-modal-img" id="gbModalImg"></div>
+            </div>
+            <div class="gb-modal-body" id="gbModalBody"></div>
+          </div>
+          <div class="gb-footer">
+            btc &middot; xmr &middot; escrow protected &middot; no logs &middot; pgp encrypted
+            <div class="gb-footer-warn">uptime 99.4% &middot; safenet mirror: <a href="https://www.wickedglimmer.org" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline;">www.wickedglimmer.org</a></div>
+            <div class="gb-footer-disclaimer">
+              this is a fictional satirical art piece for the wicked glimmer project. all listings, vendors, prices, and reviews are invented. no products, transactions, or services are real or available.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ════════ NOTES VIEW ════════ -->
+      <div class="view hidden" id="notesView">
+        <div class="status-bar">
+          <span class="sb-time" id="notesTime">9:41</span>
+          <span class="sb-icons" id="notesIcons"></span>
+        </div>
+        <div class="notes-nav">
+          <span class="notes-title">Notes</span>
+        </div>
+        <div class="notes-body">
+          <textarea class="notes-textarea" placeholder="Start typing…"></textarea>
+        </div>
+      </div>
+
+      <!-- ════════ WICKEDGRAM / ANOMALY FEED ════════ -->
+      <div class="view hidden" id="igView">
+        <div class="status-bar">
+          <span class="sb-time" id="igTime">9:41</span>
+          <span class="sb-icons" id="igIcons"></span>
+        </div>
+        <div class="ig-corr-bar" id="igCorrBar"></div>
+        <div class="ig-top-nav">
+          <span class="ig-home-btn" id="igHomeBtn">&#8249;</span>
+          <span class="ig-wordmark">Wickedgram</span>
+          <div class="ig-nav-right">
+            <svg width="28" height="26" viewBox="0 0 28 26" fill="none">
+              <path d="M14 23s-11-7.2-11-13a6 6 0 0112 0 6 6 0 0112 0c0 5.8-11 13-13 13z"
+                    stroke="#262626" stroke-width="2" fill="none"/>
+            </svg>
+            <svg width="26" height="26" viewBox="0 0 26 26" fill="none">
+              <path d="M23 13L2 3l3 10L2 23l21-10z" stroke="#262626" stroke-width="2"
+                    stroke-linejoin="round" fill="none"/>
+              <path d="M5 13h8" stroke="#262626" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          </div>
+        </div>
+        <div class="ig-hud" id="igHud">
+          <div class="ig-hud-score" id="igHudScore">0</div>
+          <div class="ig-hud-combo" id="igHudCombo"></div>
+        </div>
+        <div class="ig-feed-scroll" id="igFeedScroll"></div>
+        <!-- Tutorial -->
+        <div class="ig-tutorial" id="igTutorial">
+          <div class="ig-tut-row">
+            <svg width="32" height="30" viewBox="0 0 32 30" fill="none">
+              <path d="M16 27s-13-8.5-13-15.5a7.5 7.5 0 0115 0 7.5 7.5 0 0115 0c0 7-13 15.5-17 15.5z"
+                    stroke="#ed4956" stroke-width="2.5" fill="none"/>
+            </svg>
+            <div class="ig-tut-text"><b>HEART</b> normal posts</div>
+          </div>
+          <div class="ig-tut-row">
+            <svg width="26" height="30" viewBox="0 0 22 26" fill="none">
+              <line x1="4" y1="3" x2="4" y2="25" stroke="#007a1f" stroke-width="2.5" stroke-linecap="round"/>
+              <path d="M4 4h14l-4 6 4 6H4" stroke="#007a1f" stroke-width="2.2" fill="none" stroke-linejoin="round"/>
+            </svg>
+            <div class="ig-tut-text b-green"><b>REPORT</b> anomalous posts</div>
+          </div>
+          <div class="ig-tut-text" style="color:#555;font-size:14px;text-align:center;line-height:1.6;">
+            Wrong actions fill the corruption meter.<br>Anomalies get worse each loop.
+          </div>
+          <div class="ig-tut-divider"></div>
+          <div class="ig-tut-anomlist">
+            <div class="ig-tut-anomlist-title">anomalies include:</div>
+            <ul>
+              <li>photos that shouldn&rsquo;t exist</li>
+              <li>disturbing / cursed images</li>
+              <li>images that drift, drain, or bleed</li>
+              <li>names and numbers that feel wrong</li>
+              <li>UI glitches</li>
+              <li>something looking back</li>
+            </ul>
+          </div>
+          <div class="ig-tut-warning">
+            <span class="ig-tut-warning-title">content warning</span>
+            this game may feature graphic depictions of gore and other unsettling imagery not suitable for sensitive audiences.
+          </div>
+          <div class="ig-tut-tap">tap anywhere to begin</div>
+        </div>
+        <!-- Game over -->
+        <div class="ig-gameover hidden" id="igGameover">
+          <div class="ig-go-line1" id="igGoLine1">IT SAW YOU</div>
+          <div class="ig-go-line2">the feed has ended</div>
+          <div class="ig-go-scores" id="igGoScores"></div>
+          <!-- Leaderboard slot — JS swaps content between the IG-handle form
+               and the rendered top-10 list after submission. -->
+          <div class="ig-go-lb" id="igGoLb"></div>
+          <div class="ig-go-restart" id="igGoRestart">try again</div>
+        </div>
+      </div>
+
+    </div><!-- /screen -->
+    <div class="home-button-overlay" id="homeBtn"></div>
+    <img class="iphone-bezel" src="iPhone 640px.png" alt="">
+  </div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════════
+   ▼▼▼  ADD PHOTOS HERE  ▼▼▼
+   ─────────────────────────────────────────────────────────────────────
+   1. Drop your .jpg / .png files into THIS SAME FOLDER as the HTML.
+   2. Add each filename as a new line inside the array below.
+   3. Save. Done — they appear in both the carousel and camera roll.
+
+   Example — to add a 10th photo named "10newshot.jpg":
+     '9girlback.jpg',
+     '10newshot.jpg'     ← add here
+   ═══════════════════════════════════════════════════════════════════════ */
+const PHOTO_CDN = 'https://cdn.shopify.com/s/files/1/0734/4671/9780/files/';
+const PHOTOS = [
+  '0.jpg',
+  '1marwang.jpg',
+  '2girl.jpg',
+  '3glaive.jpg',
+  '4jing.jpg',
+  '5yves.jpg',
+  '6boundbylove.jpg',
+  '7pants.jpg',
+  '8chinomara.jpg',
+  '9girlback.jpg',
+  '10luke.jpg',
+  '11faith.jpg',
+  '12.jpg',
+  '13.jpg',
+  '14.jpg',
+  '15.jpg',
+  '16.jpg',
+  '17.jpg',
+  '18.jpg',
+  '19.jpg',
+  '20.jpg',
+  '21.jpg',
+  '22.jpg',
+  '23.jpg',
+  '24.jpg',
+  // ← drop new files in the folder, then add filenames here
+];
+
+(function () {
+'use strict';
+
+/* ── working list (modified by deletes) ── */
+let photoList = [...PHOTOS];
+
+/* ── DOM refs ── */
+const wrapper       = document.getElementById('iphoneWrapper');
+const screenEl      = document.getElementById('screenEl');
+const gridView      = document.getElementById('gridView');
+const photoView     = document.getElementById('photoView');
+const photoCarousel  = document.getElementById('photoCarousel');
+const photoTrack     = document.getElementById('photoTrack');
+const photoNav       = document.getElementById('photoNav');
+const photoScrubber  = document.getElementById('photoScrubber');
+const scrubScroll   = document.getElementById('scrubScroll');
+const photoCounter  = document.getElementById('photoCounter');
+const photoBack     = document.getElementById('photoBack');
+const photoGrid     = document.getElementById('photoGrid');
+const gBtnLeft      = document.getElementById('gBtnLeft');
+const gBtnRight     = document.getElementById('gBtnRight');
+const gNavTitle     = document.getElementById('gNavTitle');
+
+/* ── Dynamic arrays, parallel to photoList ── */
+let gridThumbs  = [];
+let scrubThumbs = [];
+
+/* ──────────────────────────────────────────
+   SCALE
+   ────────────────────────────────────────── */
+function getScale() {
+  const m = wrapper.style.transform.match(/scale\(([\d.]+)\)/);
+  return m ? parseFloat(m[1]) : 1;
+}
+function scaleToFit() {
+  const s = Math.min(window.innerWidth / 640, window.innerHeight / 1382, 1);
+  wrapper.style.transform = `scale(${s})`;
+}
+scaleToFit();
+window.addEventListener('resize', scaleToFit);
+
+/* ──────────────────────────────────────────
+   CLOCK + ICONS
+   ────────────────────────────────────────── */
+function fmtTime() {
+  const d = new Date(), h = d.getHours() % 12 || 12,
+        m = String(d.getMinutes()).padStart(2,'0');
+  return `${h}:${m}`;
+}
+function tickTime() {
+  const t = fmtTime();
+  document.getElementById('gridTime').textContent    = t;
+  document.getElementById('photoTime').textContent   = t;
+  document.getElementById('dashTime').textContent    = t;
+  document.getElementById('safariTime').textContent  = t;
+  document.getElementById('notesTime').textContent   = t;
+  document.getElementById('igTime').textContent      = t;
+}
+tickTime();
+setInterval(tickTime, 15000);
+
+/* Status bar icons — accurate WiFi arcs, red low-battery */
+const iconsHTML = `
+  <svg width="22" height="15" viewBox="0 0 22 15" fill="#fff">
+    <rect x="0"  y="9"  width="4" height="6"  rx=".8"/>
+    <rect x="6"  y="6"  width="4" height="9"  rx=".8"/>
+    <rect x="12" y="3"  width="4" height="12" rx=".8"/>
+    <rect x="18" y="0"  width="4" height="15" rx=".8"/>
+  </svg>
+  <svg width="20" height="15" viewBox="0 0 20 15" fill="none" overflow="visible">
+    <circle cx="10" cy="13.5" r="2.1" fill="#fff"/>
+    <path d="M6.2 10.0 C7.4 8.5 8.6 7.8 10 7.8 C11.4 7.8 12.6 8.5 13.8 10.0"
+          stroke="#fff" stroke-width="2" fill="none"
+          stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M2.8 6.5 C5.0 3.8 7.4 2.5 10 2.5 C12.6 2.5 15.0 3.8 17.2 6.5"
+          stroke="#fff" stroke-width="2" fill="none"
+          stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M-0.3 3.1 C3.0 -0.5 6.3 -1.5 10 -1.5 C13.7 -1.5 17.0 -0.5 20.3 3.1"
+          stroke="#fff" stroke-width="2" fill="none"
+          stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>
+  <svg width="32" height="16" viewBox="0 0 32 16" fill="none">
+    <rect x=".5" y=".5" width="27" height="15" rx="3.5"
+          stroke="#fff" stroke-opacity=".5"/>
+    <rect x="2" y="2" width="4.5" height="12" rx="1.5" fill="#FF3B30"/>
+    <path d="M29 5.5v5a2.5 2.5 0 000-5z" fill="#fff" fill-opacity=".4"/>
+  </svg>`;
+document.getElementById('gridIcons').innerHTML   = iconsHTML;
+document.getElementById('photoIcons').innerHTML  = iconsHTML;
+document.getElementById('dashIcons').innerHTML   = iconsHTML;
+document.getElementById('safariIcons').innerHTML = iconsHTML;
+document.getElementById('notesIcons').innerHTML  = iconsHTML;
+document.getElementById('igIcons').innerHTML     = iconsHTML;
+
+/* Battery % already set inline in the template above */
+
+
+/* ══════════════════════════════════════════
+   BUILD GRID
+   ══════════════════════════════════════════ */
+function buildGrid(list) {
+  photoGrid.innerHTML = '';
+  gridThumbs = [];
+
+  list.forEach((src, i) => {
+    const cell = document.createElement('div');
+    cell.className = 'g-thumb';
+
+    const img = document.createElement('img');
+    img.src = PHOTO_CDN + src; img.alt = ''; img.draggable = false;
+    cell.appendChild(img);
+
+    const circle = document.createElement('div');
+    circle.className = 'sel-circle';
+    cell.appendChild(circle);
+
+    cell.addEventListener('click', () => {
+      if (selectMode) toggleSelect(i);
+      else            openPhoto(i, cell);
+    });
+
+    photoGrid.appendChild(cell);
+    gridThumbs.push(cell);
+  });
+
+  /* White-fill incomplete last row */
+  const rem = list.length % 4;
+  if (rem > 0) {
+    for (let j = 0; j < 4 - rem; j++) {
+      const f = document.createElement('div');
+      f.className = 'g-thumb-filler';
+      photoGrid.appendChild(f);
+    }
+  }
+}
+
+
+/* ══════════════════════════════════════════
+   BUILD CAROUSEL SLIDES (with clone wraps for infinite loop)
+   ══════════════════════════════════════════ */
+function buildCarouselSlides(list) {
+  photoTrack.innerHTML = '';
+  if (!list.length) return;
+
+  /* layout: [clone_last | real_0..real_N-1 | clone_first]
+     vIdx 0 → clone_last → wraps to real_N-1 after transition
+     vIdx 1..N → real photos
+     vIdx N+1 → clone_first → wraps to real_0 after transition  */
+  const srcs = list.length === 1
+    ? [list[0], list[0], list[0]]
+    : [list[list.length - 1], ...list, list[0]];
+
+  srcs.forEach(src => {
+    const slide = document.createElement('div');
+    slide.className = 'photo-slide';
+    const img = document.createElement('img');
+    img.src = PHOTO_CDN + src; img.draggable = false;
+    slide.appendChild(img);
+    photoTrack.appendChild(slide);
+  });
+}
+
+
+/* ══════════════════════════════════════════
+   BUILD SCRUBBER
+   ══════════════════════════════════════════ */
+function buildScrubber(list) {
+  scrubScroll.innerHTML = '';
+  scrubThumbs = [];
+
+  list.forEach((src) => {
+    const wrap = document.createElement('div');
+    wrap.className = 'scrub-thumb';
+    const inner = document.createElement('div');
+    inner.className = 'scrub-thumb-inner';
+    const img = document.createElement('img');
+    img.src = PHOTO_CDN + src; img.draggable = false;
+    inner.appendChild(img);
+    wrap.appendChild(inner);
+    scrubThumbs.push(wrap);
+    scrubScroll.appendChild(wrap);
+  });
+}
+
+
+/* ══════════════════════════════════════════
+   CAROUSEL NAVIGATION
+   ══════════════════════════════════════════ */
+const SW = 567;
+let vIdx = 1;
+
+function toReal(vi) { return vi - 1; }
+
+function setCarouselPos(vi, animate) {
+  photoTrack.classList.toggle('notrans', !animate);
+  photoTrack.style.transform = `translateX(${-vi * SW}px)`;
+}
+
+function syncScrubber(ri) {
+  scrubThumbs.forEach((t, i) => t.classList.toggle('active', i === ri));
+  const t = scrubThumbs[ri];
+  if (!t) return;
+  scrubScroll.scrollTo({ left: t.offsetLeft - scrubScroll.clientWidth / 2 + t.offsetWidth / 2, behavior: 'instant' });
+}
+
+function syncCounter(ri) {
+  const n = photoList.length;
+  photoCounter.textContent = n ? `${ri + 1} of ${n}` : '';
+}
+
+function goTo(ri, animate) {
+  const n = photoList.length;
+  if (!n) return;
+  ri = ((ri % n) + n) % n;
+  vIdx = ri + 1;
+  setCarouselPos(vIdx, animate);
+  syncScrubber(ri);
+  syncCounter(ri);
+}
+
+/* Seamless infinite re-anchor */
+photoTrack.addEventListener('transitionend', e => {
+  if (e.propertyName !== 'transform') return;
+  const n = photoList.length;
+  if (!n) return;
+  if (vIdx === 0)     { vIdx = n;   setCarouselPos(vIdx, false); }
+  else if (vIdx===n+1){ vIdx = 1;   setCarouselPos(vIdx, false); }
+  syncScrubber(toReal(vIdx));
+  syncCounter(toReal(vIdx));
+});
+
+
+/* ══════════════════════════════════════════
+   IDLE TIMER
+   ══════════════════════════════════════════ */
+let idleTimer = null;
+const IDLE_MS = 4000;
+
+function showBars() { photoView.classList.remove('bars-hidden'); }
+function hideBars() { photoView.classList.add('bars-hidden'); idleTimer = null; }
+function resetIdleTimer() {
+  if (idleTimer) clearTimeout(idleTimer);
+  showBars();
+  idleTimer = setTimeout(hideBars, IDLE_MS);
+}
+function cancelIdleTimer() {
+  if (idleTimer) { clearTimeout(idleTimer); idleTimer = null; }
+}
+
+
+/* ══════════════════════════════════════════
+   ZOOM TRANSITIONS
+   ══════════════════════════════════════════ */
+function rectInScreen(el) {
+  const s  = getScale();
+  const sr = screenEl.getBoundingClientRect();
+  const er = el.getBoundingClientRect();
+  return {
+    left:   (er.left   - sr.left) / s,
+    top:    (er.top    - sr.top)  / s,
+    width:  er.width  / s,
+    height: er.height / s,
+  };
+}
+
+function thumbTransform(thumbEl) {
+  const r  = rectInScreen(thumbEl);
+  const tx = (r.left + r.width  / 2) - (567 / 2);
+  const ty = (r.top  + r.height / 2) - (1002 / 2);
+  return `translate(${tx}px,${ty}px) scale(${r.width/567},${r.height/1002})`;
+}
+
+/* ── OPEN: grid thumb → full screen ── */
+function openPhoto(ri, thumbEl) {
+  /* 1. Instant: position photoView at thumbnail, invisible */
+  photoView.classList.remove('zoom-in','zoom-out','hidden');
+  photoView.style.transform = thumbTransform(thumbEl);
+  photoView.style.opacity   = '0';
+  goTo(ri, false);
+
+  /* 2. Reflow → paint start state */
+  photoView.offsetHeight;
+
+  /* 3. Activate transition → animate to full screen */
+  photoView.classList.add('zoom-in');
+  photoView.style.transform = 'translate(0px,0px) scale(1,1)';
+  photoView.style.opacity   = '1';
+
+  /* 4. Clean up after animation ends */
+  setTimeout(() => {
+    photoView.classList.remove('zoom-in');
+    photoView.style.transform = '';
+    photoView.style.opacity   = '';
+    resetIdleTimer();
+  }, 360);
+}
+
+/* ── CLOSE: full screen → grid thumb ── */
+function closePhoto() {
+  cancelIdleTimer();
+  const ri      = toReal(vIdx);
+  const thumbEl = gridThumbs[ri];
+  if (!thumbEl) { photoView.classList.add('hidden'); return; }
+
+  /* Scroll grid so target thumb is on-screen, then read its rect */
+  thumbEl.scrollIntoView({ behavior: 'instant', block: 'nearest' });
+
+  /* Double-RAF: scroll settles, then measure */
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    const target = thumbTransform(thumbEl);
+
+    /* 1. Ensure we're starting from full-screen (explicit, no transition) */
+    photoView.classList.remove('zoom-in','zoom-out');
+    photoView.style.transition = 'none';
+    photoView.style.transform  = 'translate(0px,0px) scale(1,1)';
+    photoView.style.opacity    = '1';
+
+    /* 2. Reflow to lock start state */
+    photoView.offsetHeight;
+
+    /* 3. Activate close transition → animate to thumbnail */
+    photoView.style.transition = '';
+    photoView.classList.add('zoom-out');
+    photoView.style.transform  = target;
+    photoView.style.opacity    = '0';
+
+    /* 4. Hide when done — must match transition duration above */
+    setTimeout(() => {
+      photoView.classList.add('hidden');
+      photoView.classList.remove('zoom-out');
+      photoView.style.cssText = '';
+    }, 450);
+  }));
+}
+
+photoBack.addEventListener('click', e => { e.stopPropagation(); closePhoto(); });
+
+
+/* ══════════════════════════════════════════
+   CAROUSEL SWIPE + SWIPE-DOWN TO DISMISS
+   Horizontal → navigate photos (infinite)
+   Vertical ↓  → fly photo off-screen, return to camera roll
+   ══════════════════════════════════════════ */
+let dragActive = false, dragMoved = false, dragDir = null;
+let dStartX = 0, dCurX = 0, dVel  = 0, dLastX = 0;
+let dStartY = 0, dCurY = 0, dVelY = 0, dLastY = 0, dLastT = 0;
+
+function onSwipeStart(x, y) {
+  dragActive = true; dragMoved = false; dragDir = null;
+  dStartX = dCurX = dLastX = x;
+  dStartY = dCurY = dLastY = y;
+  dLastT = Date.now(); dVel = 0; dVelY = 0;
+  photoTrack.classList.add('notrans');
+}
+
+function onSwipeMove(x, y) {
+  if (!dragActive) return;
+  const now = Date.now(), dt = Math.max(now - dLastT, 1);
+
+  /* Lock direction after 8px movement */
+  if (!dragDir) {
+    const adx = Math.abs(x - dStartX), ady = Math.abs(y - dStartY);
+    if (adx > 8 || ady > 8) dragDir = ady > adx ? 'vert' : 'horiz';
+  }
+
+  if (dragDir === 'vert') {
+    dVelY = (y - dLastY) / dt;
+    dLastY = y; dCurY = y; dLastT = now;
+    const dy = Math.max(0, y - dStartY);       /* only downward */
+    const dx = (x - dStartX) * 0.35;          /* slight horizontal drift */
+    if (dy > 5) dragMoved = true;
+    const scale      = Math.max(0.50, 1 - dy / 900);
+    const photoOpa   = Math.max(0.08, 1 - Math.max(0, dy - 60) / 360);
+    const chromeOpa  = Math.max(0, 1 - dy / 140);   /* nav/scrubber fade faster */
+    /* Move only the carousel — photoView stays put so no UI duplication */
+    photoCarousel.style.transition = 'none';
+    photoCarousel.style.transform  = `translate(${dx}px, ${dy}px) scale(${scale})`;
+    photoCarousel.style.opacity    = String(photoOpa);
+    photoNav.style.opacity         = String(chromeOpa);
+    photoScrubber.style.opacity    = String(chromeOpa);
+
+  } else {
+    dVel = (x - dLastX) / dt;
+    dLastX = x; dCurX = x; dLastT = now;
+    if (Math.abs(x - dStartX) > 5) dragMoved = true;
+    photoTrack.style.transform = `translateX(${-vIdx * SW + (x - dStartX)}px)`;
+  }
+}
+
+function snapBackToFull() {
+  const sp = 'cubic-bezier(0.25,0.46,0.45,0.94)';
+  photoCarousel.style.transition = `transform 0.38s ${sp}, opacity 0.3s ease`;
+  photoCarousel.style.transform  = 'translate(0,0) scale(1)';
+  photoCarousel.style.opacity    = '1';
+  photoNav.style.transition      = 'opacity 0.28s ease';
+  photoNav.style.opacity         = '';   /* restore to CSS-controlled value */
+  photoScrubber.style.transition = 'opacity 0.28s ease';
+  photoScrubber.style.opacity    = '';
+  setTimeout(() => {
+    photoCarousel.style.transition = '';
+    photoCarousel.style.transform  = '';
+    photoCarousel.style.opacity    = '';
+    photoNav.style.transition      = '';
+    photoScrubber.style.transition = '';
+    resetIdleTimer();
+  }, 420);
+}
+
+function flyOffDown(dy) {
+  cancelIdleTimer();
+  const dx        = (dCurX - dStartX) * 0.35;
+  const remaining = 1060 - dy;
+  const dur = Math.max(0.16, Math.min(0.3, remaining / Math.max(dVelY * 1000, 650)));
+  photoCarousel.style.transition = `transform ${dur}s ease-in, opacity ${dur * 0.6}s ease`;
+  photoCarousel.style.transform  = `translate(${dx}px, 1060px) scale(0.45)`;
+  photoCarousel.style.opacity    = '0';
+  photoNav.style.transition      = `opacity ${dur * 0.35}s ease`;
+  photoNav.style.opacity         = '0';
+  photoScrubber.style.transition = `opacity ${dur * 0.35}s ease`;
+  photoScrubber.style.opacity    = '0';
+  setTimeout(() => {
+    photoView.classList.add('hidden');
+    photoView.style.cssText      = '';
+    photoCarousel.style.cssText  = '';
+    photoNav.style.cssText       = '';
+    photoScrubber.style.cssText  = '';
+  }, dur * 1000 + 60);
+}
+
+function onSwipeEnd() {
+  if (!dragActive) return;
+  dragActive = false;
+  photoTrack.classList.remove('notrans');
+
+  if (dragDir === 'vert') {
+    const dy = Math.max(0, dCurY - dStartY);
+    if (dy > 40 || dVelY > 0.20) flyOffDown(dy);
+    else                          snapBackToFull();
+    return;
+  }
+
+  /* Horizontal or undecided (short tap) */
+  const delta = dCurX - dStartX;
+  const momentum = dVel * 120;
+  const total = delta + momentum;
+  if (!dragMoved) {
+    setCarouselPos(vIdx, false);
+    if (!photoView.classList.contains('bars-hidden')) { hideBars(); cancelIdleTimer(); }
+    else resetIdleTimer();
+    return;
+  }
+  resetIdleTimer();
+  if (Math.abs(total) > SW * 0.22) {
+    const dir   = total < 0 ? 1 : -1;
+    /* Steps scale with velocity — higher divisor = less sensitive */
+    const steps = 1;
+    vIdx += dir * steps;
+    /* Wrap into valid real-slide range [1..N] so fast flings never go out of bounds */
+    const n = photoList.length;
+    vIdx = ((vIdx - 1 % n + n * 10) % n) + 1;
+  }
+  setCarouselPos(vIdx, true);
+}
+
+photoCarousel.addEventListener('touchstart',  e => onSwipeStart(e.touches[0].clientX, e.touches[0].clientY), { passive: true });
+photoCarousel.addEventListener('touchmove',   e => { e.preventDefault(); onSwipeMove(e.touches[0].clientX, e.touches[0].clientY); }, { passive: false });
+photoCarousel.addEventListener('touchend',    onSwipeEnd);
+photoCarousel.addEventListener('touchcancel', onSwipeEnd);
+photoCarousel.addEventListener('mousedown',   e => { e.preventDefault(); onSwipeStart(e.clientX, e.clientY); });
+window.addEventListener('mousemove', e => { if (dragActive) onSwipeMove(e.clientX, e.clientY); });
+window.addEventListener('mouseup',   onSwipeEnd);
+
+
+/* ══════════════════════════════════════════
+   SCRUBBER DRAG
+   ══════════════════════════════════════════ */
+let scrubbing = false, scrubLastI = -1;
+
+function scrubIdxFromX(clientX) {
+  const s     = getScale();
+  const rect  = scrubScroll.getBoundingClientRect();
+  const localX = (clientX - rect.left) / s + scrubScroll.scrollLeft;
+  return Math.max(0, Math.min(photoList.length - 1, Math.floor((localX - 10) / 80)));
+}
+function scrubTo(idx, animate) {
+  if (idx !== scrubLastI) { scrubLastI = idx; goTo(idx, animate); resetIdleTimer(); }
+}
+
+scrubScroll.addEventListener('touchstart',  e => { scrubbing = true;  scrubLastI = -1; scrubTo(scrubIdxFromX(e.touches[0].clientX), true); },  { passive: true });
+scrubScroll.addEventListener('touchmove',   e => { if (scrubbing) scrubTo(scrubIdxFromX(e.touches[0].clientX), false); }, { passive: true });
+scrubScroll.addEventListener('touchend',    () => { scrubbing = false; });
+scrubScroll.addEventListener('touchcancel', () => { scrubbing = false; });
+scrubScroll.addEventListener('mousedown',   e => { e.stopPropagation(); scrubbing = true; scrubLastI = -1; scrubTo(scrubIdxFromX(e.clientX), true); });
+window.addEventListener('mousemove', e => { if (scrubbing) scrubTo(scrubIdxFromX(e.clientX), false); });
+window.addEventListener('mouseup',   () => { scrubbing = false; });
+
+
+/* ══════════════════════════════════════════
+   SELECT + DELETE MODE
+   ══════════════════════════════════════════ */
+let selectMode = false;
+const selectedSet = new Set();
+
+function updateSelectUI() {
+  const n = selectedSet.size;
+  gNavTitle.textContent = n > 0 ? `${n} Photo${n > 1 ? 's' : ''} Selected` : 'Camera Roll';
+  gBtnLeft.className = n > 0 ? 'g-btn del-on' : 'g-btn del-off';
+}
+
+function toggleSelect(i) {
+  const t = gridThumbs[i];
+  if (!t) return;
+  if (selectedSet.has(i)) { selectedSet.delete(i); t.classList.remove('selected'); }
+  else                    { selectedSet.add(i);    t.classList.add('selected'); }
+  updateSelectUI();
+}
+
+function enterSelectMode() {
+  selectMode = true;
+  selectedSet.clear();
+  photoGrid.classList.add('sel-mode');
+  gBtnLeft.textContent = 'Delete';
+  gBtnLeft.className   = 'g-btn del-off';
+  gBtnRight.textContent = 'Cancel';
+  gNavTitle.textContent = 'Camera Roll';
+}
+
+function exitSelectMode() {
+  selectMode = false;
+  selectedSet.clear();
+  gridThumbs.forEach(t => t.classList.remove('selected'));
+  photoGrid.classList.remove('sel-mode');
+  gBtnLeft.textContent  = 'Albums';
+  gBtnLeft.className    = 'g-btn';
+  gBtnRight.textContent = 'Select';
+  gNavTitle.textContent = 'Camera Roll';
+}
+
+function executeDelete() {
+  if (!selectedSet.size) return;
+  const toDelete = new Set(selectedSet);
+
+  /* Animate out selected thumbs */
+  gridThumbs.forEach((t, i) => { if (toDelete.has(i)) t.classList.add('deleting'); });
+
+  setTimeout(() => {
+    /* Compute new current index */
+    const currentRi = toReal(vIdx);
+    const sortedDel  = [...toDelete].sort((a,b) => a - b);
+    const nBefore    = sortedDel.filter(i => i < currentRi).length;
+    const curDeleted = toDelete.has(currentRi);
+
+    const newList = photoList.filter((_, i) => !toDelete.has(i));
+
+    if (newList.length === 0) {
+      photoList = newList;
+      buildGrid(photoList);
+      buildCarouselSlides(photoList);
+      buildScrubber(photoList);
+      exitSelectMode();
+      /* No photos left — stay on grid view */
+      photoView.classList.add('hidden');
+      return;
+    }
+
+    let newRi = curDeleted
+      ? Math.min(currentRi - nBefore, newList.length - 1)
+      : Math.max(0, currentRi - nBefore);
+    newRi = Math.max(0, Math.min(newRi, newList.length - 1));
+
+    photoList = newList;
+    buildGrid(photoList);
+    buildCarouselSlides(photoList);
+    buildScrubber(photoList);
+
+    vIdx = newRi + 1;
+    setCarouselPos(vIdx, false);
+    syncScrubber(newRi);
+    syncCounter(newRi);
+
+    exitSelectMode();
+  }, 260);
+}
+
+/* Grid button handlers */
+gBtnRight.addEventListener('click', () => {
+  if (!selectMode) enterSelectMode();
+  else             exitSelectMode();
+});
+gBtnLeft.addEventListener('click', () => {
+  if (selectMode) executeDelete();
+  /* If not in select mode, "Albums" does nothing */
+});
+
+
+/* ══════════════════════════════════════════
+   ELASTIC BOUNCE SCROLL (camera roll grid)
+   Touch + mouse, no image-highlight side-effects
+   ══════════════════════════════════════════ */
+(function() {
+  const scroller = document.getElementById('gridScroll');
+  const content  = document.getElementById('photoGrid');
+  const RESIST   = 0.55;
+  const SPRING   = 'transform 0.52s cubic-bezier(0.23, 1, 0.32, 1)';
+
+  let startY = 0, startST = 0, curTY = 0, active = false, isTouch = false;
+
+  function begin(clientY, touch) {
+    startY  = clientY;
+    startST = scroller.scrollTop;
+    curTY   = 0;
+    active  = true;
+    isTouch = touch;
+    content.style.transition = 'none';
+    if (!touch) scroller.classList.add('dragging');
+  }
+
+  function move(clientY) {
+    if (!active) return;
+    const dy    = clientY - startY;
+    const maxST = scroller.scrollHeight - scroller.clientHeight;
+    const atTop = scroller.scrollTop <= 0;
+    const atBot = scroller.scrollTop >= maxST - 1;
+
+    if ((dy > 0 && atTop) || (dy < 0 && atBot)) {
+      /* Elastic overscroll: resist movement and freeze native scroll */
+      curTY = dy * RESIST;
+      content.style.transform = `translateY(${curTY}px)`;
+      if (!isTouch) {
+        /* For mouse: manually drive scrollTop to prevent native scroll fighting */
+        scroller.scrollTop = startST;
+      }
+    } else {
+      /* Mid-scroll — snap transform back instantly if we re-enter normal range */
+      if (curTY !== 0) { content.style.transform = ''; curTY = 0; }
+      if (!isTouch) scroller.scrollTop = startST - dy;
+    }
+  }
+
+  function release() {
+    if (!active) return;
+    active = false;
+    scroller.classList.remove('dragging');
+    if (curTY !== 0) {
+      content.style.transition = SPRING;
+      content.style.transform  = 'translateY(0)';
+      content.addEventListener('transitionend', () => {
+        content.style.transition = '';
+        content.style.transform  = '';
+      }, { once: true });
+      curTY = 0;
+    }
+  }
+
+  /* Touch */
+  scroller.addEventListener('touchstart',  e => begin(e.touches[0].clientY, true), { passive: true });
+  scroller.addEventListener('touchmove',   e => {
+    if (!active) return;
+    const dy    = e.touches[0].clientY - startY;
+    const atTop = scroller.scrollTop <= 0;
+    const atBot = scroller.scrollTop >= scroller.scrollHeight - scroller.clientHeight - 1;
+    if ((dy > 0 && atTop) || (dy < 0 && atBot)) e.preventDefault();
+    move(e.touches[0].clientY);
+  }, { passive: false });
+  scroller.addEventListener('touchend',    release, { passive: true });
+  scroller.addEventListener('touchcancel', release, { passive: true });
+
+  /* Mouse */
+  scroller.addEventListener('mousedown', e => { e.preventDefault(); begin(e.clientY, false); });
+  window.addEventListener('mousemove',   e => { if (active && !isTouch) move(e.clientY); });
+  window.addEventListener('mouseup',     () => { if (active && !isTouch) release(); });
+})();
+
+/* ════════════════════════════════════════════
+   VIEW NAVIGATION + APP ZOOM ANIMATIONS
+   ════════════════════════════════════════════ */
+
+const dashView  = document.getElementById('dashView');
+const safariView = document.getElementById('safariView');
+const notesView  = document.getElementById('notesView');
+const igViewEl   = document.getElementById('igView');
+
+const ALL_VIEWS = [gridView, photoView, dashView, safariView, notesView, igViewEl];
+
+let activeAppState = null; /* { el, iconId } */
+
+/* Pixel rect of an icon inside the scaled phone screen */
+function rectInScreen(iconEl) {
+  const sr = screenEl.getBoundingClientRect();
+  const ir = iconEl.getBoundingClientRect();
+  const s  = getScale();
+  return {
+    x: (ir.left - sr.left) / s,
+    y: (ir.top  - sr.top)  / s,
+    w: ir.width  / s,
+    h: ir.height / s
+  };
+}
+
+/* CSS transform: shrink full screen down to the icon's rect */
+function iconZoomTransform(iconId) {
+  const iconEl = document.getElementById(iconId);
+  if (!iconEl) return '';
+  const r  = rectInScreen(iconEl);
+  const SW = screenEl.offsetWidth;
+  const SH = screenEl.offsetHeight;
+  const tx = r.x + r.w / 2 - SW / 2;
+  const ty = r.y + r.h / 2 - SH / 2;
+  const sc = Math.min(r.w / SW, r.h / SH);
+  return `translate(${tx}px,${ty}px) scale(${sc})`;
+}
+
+/* Open a view with iPhone-style zoom-from-icon */
+function openWithZoom(viewEl, iconId, onReady) {
+  ALL_VIEWS.forEach(v => { if (v !== viewEl) v.classList.add('hidden'); });
+  activeAppState = { el: viewEl, iconId: iconId };
+
+  viewEl.style.transition = 'none';
+  viewEl.style.transform  = iconZoomTransform(iconId);
+  viewEl.style.opacity    = '0';
+  viewEl.classList.remove('hidden');
+  viewEl.offsetHeight; /* reflow */
+
+  viewEl.style.transition = 'transform 0.38s cubic-bezier(0.14,0.99,0.32,1.0), opacity 0.22s ease';
+  viewEl.style.transform  = 'translate(0,0) scale(1)';
+  viewEl.style.opacity    = '1';
+
+  viewEl.addEventListener('transitionend', function _h() {
+    viewEl.removeEventListener('transitionend', _h);
+    viewEl.style.transition = '';
+    viewEl.style.transform  = '';
+    viewEl.style.opacity    = '';
+    if (onReady) onReady();
+  });
+}
+
+/* Home button: app scales/fades down, dashboard icons spring in */
+function goToDashboard() {
+  if (activeAppState) {
+    var _el     = activeAppState.el;
+    activeAppState = null;
+
+    /* 1. Scale app down and fade out — feels like iOS home press */
+    _el.style.transition = 'transform 0.28s cubic-bezier(0.52,0.0,0.72,0), opacity 0.22s ease';
+    _el.style.transform  = 'scale(0.88)';
+    _el.style.opacity    = '0';
+
+    /* 2. Simultaneously show dashboard with icon spring-in */
+    dashView.classList.remove('hidden');
+    dashView.style.opacity = '0';
+    dashView.style.transition = 'opacity 0.18s ease';
+    dashView.offsetHeight;
+    dashView.style.opacity = '1';
+
+    /* Spring-in each icon */
+    var icons = dashView.querySelectorAll('.app-icon');
+    icons.forEach(function(ic, i) {
+      ic.style.transform = 'scale(0.6)';
+      ic.style.opacity   = '0';
+      ic.style.transition = 'none';
+      setTimeout(function() {
+        ic.style.transition = 'transform 0.38s cubic-bezier(0.34,1.56,0.64,1), opacity 0.22s ease';
+        ic.style.transform  = 'scale(1)';
+        ic.style.opacity    = '1';
+      }, i * 28);
+    });
+
+    _el.addEventListener('transitionend', function _h2() {
+      _el.removeEventListener('transitionend', _h2);
+      _el.classList.add('hidden');
+      _el.style.cssText = '';
+      dashView.style.transition = '';
+      dashView.style.opacity    = '';
+    });
+  } else {
+    ALL_VIEWS.forEach(v => { if (v !== dashView) v.classList.add('hidden'); });
+    dashView.classList.remove('hidden');
+  }
+}
+
+/* ── Button wiring ── */
+document.getElementById('homeBtn').addEventListener('click', goToDashboard);
+
+document.getElementById('dashCameraRoll').addEventListener('click', function() {
+  openWithZoom(gridView, 'dashCameraRoll');
+});
+
+document.getElementById('dashSafari').addEventListener('click', function() {
+  openWithZoom(safariView, 'dashSafari');
+});
+
+document.getElementById('dashNotes').addEventListener('click', function() {
+  openWithZoom(notesView, 'dashNotes');
+});
+
+/* ── Expose globals for Instagram IIFE ── */
+window._openWithZoom  = openWithZoom;
+window._goToDashboard = goToDashboard;
+window._igView        = igViewEl;
+
+/* ── Build camera roll on load ── */
+buildGrid(photoList);
+buildCarouselSlides(photoList);
+buildScrubber(photoList);
+vIdx = 1;
+setCarouselPos(vIdx, false);
+
+/* ── Initial state: show dashboard ── */
+ALL_VIEWS.forEach(v => v.classList.add('hidden'));
+dashView.classList.remove('hidden');
+
+})();
+
+
+/* =======================================================================
+   INSTAGRAM / ANOMALY FEED GAME ENGINE
+   ======================================================================= */
+(function() {
+'use strict';
+
+/* ---- Flavour text ---- */
+/* Cursed usernames — must be impossible-looking on real IG.
+   Rule: all caps with SPACES (IG forbids spaces), or weird symbols.
+   No underscored handles (those read as plausible real accounts). */
+var CURSED_USERNAMES=[
+  'YOUSEEME','THE ONE WHO WATCHES',
+  'ACCOUNT NOT FOUND','NULL NULL NULL',
+  'WHY ARE YOU SCROLLING','SEEN BY ALL','LOOK AWAY NOW',
+  'ACCOUNT DELETED ITSELF','ENTITY 7731','[REDACTED]',
+  'USER WAS DELETED'
+];
+/* Special — never used as a permanent username. Only ever briefly flashed
+   in via the username_flicker effect anomaly so players catch it as a glitch. */
+var FLICKER_CURSED='000000REBUKE0000000';
+var NORMAL_USERNAMES=[
+  'wicked.glimmer','s4ntiag0__','itsmollyvvv','ursa.jpeg',
+  'camillamxo','the.brat__','luxe.archive','notjordann_',
+  'vvvnuxx','sunken.archive','prism.jpeg',
+  'softl0re','tate.analog','mxrceline__',
+  'rot.core','crybaby.exe',
+  'saintviolet__','limerence.jpg','void.posting',
+  /* expanded pool — gen-z internet-brained, no caption lifts */
+  'gigafried_','imhimfr','terminallyonline','chronically.yapping',
+  'main.npc','daily.cope','hb.energy','reallifesigma',
+  'yappinator9000','aura.negative','doomscroll.gov','uniqlo.archives',
+  'npc.dialogue','erm.what.the','skull.emoji.real',
+  'ohio.summit','bigbackcoded','lowtaper.fade','sigma.male.grindset'
+];
+var PHOTO_USERNAMES={
+  '3glaive.jpg':'1glaive',
+  '5yves.jpg':'yvestumor',
+  '12.jpg':'tracyminajj',
+  '17.jpg':'deathbyromy',
+  '21.jpg':'6arelyhuman'
+};
+var PHOTO_NAMES={
+  '1marwang.jpg':'Marwang','2girl.jpg':'Giirl','3glaive.jpg':'Glaive',
+  '4jing.jpg':'Jing','5yves.jpg':'Yves','6boundbylove.jpg':'Bound',
+  '7pants.jpg':'Pants','8chinomara.jpg':'Chino','9girlback.jpg':'Giirl',
+  '10luke.jpg':'Luke','11faith.jpg':'Faith','12.jpg':'Tracy',
+  '13.jpg':'them','14.jpg':'them','15.jpg':'them','16.jpg':'them',
+  '17.jpg':'Romy','18.jpg':'them','19.jpg':'them','20.jpg':'them',
+  '21.jpg':'6barely','22.jpg':'them','23.jpg':'them','24.jpg':'them',
+  '25.jpg':'them','0.jpg':'000'
+};
+/* Neutral \u2014 safe for any photo */
+var CAPTIONS_NORMAL=[
+  'born in the wrong decade',
+  'the void is beautiful actually',
+  'main character disorder fr',
+  'night drive no destination',
+  'too tired to be sad too sad to be tired',
+  'my therapist hates this',
+  'somewhere between 3am and never',
+  'the intrusive thoughts won again',
+  'woke up and chose dissociation',
+  'not normal not okay not sure what i am',
+  'reality check: declined',
+  'logged off mentally years ago still posting somehow',
+  'existing is so weird and i hate it a little',
+  'the voices said post. so i posted.',
+  'glitching irl rn',
+  'the lore is that i\u2019m not okay',
+  'these demons they spank my ass while i\u2019m sleep bro',
+  'Some of you guys are alright, don\u2019t go to school tomorrow',
+  'no gf. buns at the game. and my chrome hearts belt fake.',
+  'Can anyone send me $ for roblox skins i get paid Friday typeee instrumental',
+  'who tryn hop on fort',
+  'who up ? click like',
+  '404 aura not found',
+  'i had to make a couple bands by my lonely',
+  'feeling derpy',
+  'ts pmo fr ngl',
+  'it doesn\u2019t get easier. we get tougher. we are all going to make it',
+  'Okay sure yea',
+  'i\u2019m nothing without her',
+  'going to chic fil a yall want anything',
+  'yall seeing this',
+  'thinking about miami mint geek bar',
+  'As I say before I slime out my hb \ud83d\ude08',
+  'Slime my oomfie X3',
+  'gurt: we should explore each other',
+  'share if yo hb cute asf',
+  'Last thing you see before getting backdoored in Idaho',
+  'in my spinach era',
+  'I enjoy my chungus life',
+  'it\u2019s furry friday whho tryna #paw me down on some chill type shit',
+  'i need some wingstop and a freak #shmood'
+];
+/* Femme-coded \u2014 only used on girl or unknown-gender photos */
+var CAPTIONS_FEMME=[
+  'she\u2019s not real anymore'
+];
+/* m = masc, f = femme, omit = neutral */
+var PHOTO_GENDER={
+  '1marwang.jpg':'m','3glaive.jpg':'m','5yves.jpg':'m',
+  '8chinomara.jpg':'m','10luke.jpg':'m','21.jpg':'m',
+  '2girl.jpg':'f','9girlback.jpg':'f','11faith.jpg':'f',
+  '12.jpg':'f','17.jpg':'f'
+};
+/* Shuffle-queue + 5-post no-repeat window. The shuffle handles long-range
+   uniqueness inside one pass through the pool; the recent-window prevents
+   the boundary case where the last item of one shuffle lands close to the
+   first of the next, AND prevents the femme pool (small) from looping fast. */
+var _capNQ=[],_capFQ=[];
+var _recentCaps=[];
+var CAP_NO_REPEAT_WINDOW=5;
+function _shuffle(a){var b=a.slice();for(var i=b.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=b[i];b[i]=b[j];b[j]=t;}return b;}
+function _nextN(){
+  for(var s=0;s<CAPTIONS_NORMAL.length*2;s++){
+    if(!_capNQ.length) _capNQ=_shuffle(CAPTIONS_NORMAL);
+    var c=_capNQ.pop();
+    if(_recentCaps.indexOf(c)<0) return c;
+  }
+  return _capNQ.pop()||CAPTIONS_NORMAL[0];
+}
+function _nextF(){
+  for(var s=0;s<Math.max(CAPTIONS_FEMME.length*4,4);s++){
+    if(!_capFQ.length) _capFQ=_shuffle(CAPTIONS_FEMME);
+    var c=_capFQ.pop();
+    if(_recentCaps.indexOf(c)<0) return c;
+  }
+  return null; /* no fresh femme caption available — caller will fall back */
+}
+function _trackCap(c){
+  if(!c) return;
+  _recentCaps.push(c);
+  if(_recentCaps.length>CAP_NO_REPEAT_WINDOW) _recentCaps.shift();
+}
+function pickCaption(photo){
+  var g=PHOTO_GENDER[photo]||'n';
+  var c;
+  if(g==='m') c=_nextN();
+  else if(CAPTIONS_FEMME.length && Math.random()<0.3){
+    c=_nextF();
+    if(!c) c=_nextN(); /* femme pool exhausted within window — use normal */
+  } else c=_nextN();
+  _trackCap(c);
+  return c;
+}
+var CAPTION_ROT=[
+  ['this feeling doesn\'t have a name','this feeling doesn\'t have a name. stop.','this feeling doesn\'t have a name. stop reading.','this feeling doesn\'t have a name. it knows yours.'],
+  ['night drive no destination','night drive no destination no return','night drive no destination no return no exit','night drive no destination no return no exit no you'],
+  ['everyone is a stranger eventually','everyone is a stranger. even you.','everyone is a stranger. even you. especially you.','everyone is a stranger. you always were.'],
+  ['i live here now','i live here now. so does it.','i live here now. so does it. don\'t scroll.','i live here now. so does it. too late.']
+];
+var TIMESTAMPS_NORMAL=['3 hours ago','2 hours ago','5 hours ago','1 day ago','just now','23 minutes ago','8 hours ago','4 hours ago'];
+var TIMESTAMPS_CURSED=['3 years from now','before this account existed','0 seconds from the end','posted while you sleep','timestamp deleted','??:?? ??'];
+var CURSED_LIKES=[
+  '666 people like this','liked by satan and 665 others',
+  '−1 likes','2,147,483,647 likes',
+  '0 likes (you are the only one here)',
+  'liked by no one. not even you.','likes: [REDACTED]'
+];
+var CURSED_COMMENTS=[
+  'View all −666 comments','View all ∞ comments',
+  'you already looked.','comments have been disabled by a higher authority',
+  'View all 0 comments (there are always 0 comments)'
+];
+
+/* ---- Known anomaly files ---- */
+/* Shopify CDN base for all anomaly assets — keeps the table readable. */
+var ANOM_CDN='https://cdn.shopify.com/s/files/1/0734/4671/9780/files/';
+var ANOMALY_FILE_MAP={
+  '0.jpg':         [ANOM_CDN+'0_neckveins.jpg?v=1778704846',  ANOM_CDN+'0_sprite.jpg?v=1778704843'],
+  '1marwang.jpg':  [ANOM_CDN+'1marwang_face.jpg?v=1778704846'],
+  '2girl.jpg':     [ANOM_CDN+'2girl_face.jpg?v=1778704846',   ANOM_CDN+'2girl_shadow.jpg?v=1778704845'],
+  '3glaive.jpg':   [ANOM_CDN+'3glaive_face.jpg?v=1778704844'],
+  '4jing.jpg':     [ANOM_CDN+'4jing_hell.jpg?v=1778704846'],
+  '5yves.jpg':     [ANOM_CDN+'5yves_gore.jpg?v=1778704846',   ANOM_CDN+'5yves_stabs.jpg?v=1778704846'],
+  '7pants.jpg':    [ANOM_CDN+'7pants_blood.jpg?v=1778704844'],
+  '8chinomara.jpg':[ANOM_CDN+'8chinomara_entity.jpg?v=1778704845'],
+  '9girlback.jpg': [ANOM_CDN+'9girlback_repitilian.jpg?v=1778704846'],
+  '10luke.jpg':    [ANOM_CDN+'10luke_cross.jpg?v=1778704844', ANOM_CDN+'10luke_orb.jpg?v=1778704846'],
+  '12.jpg':        [ANOM_CDN+'12_entity.png?v=1778704847'],
+  '13.jpg':        [ANOM_CDN+'13_face.jpg?v=1778704844'],
+  '14.jpg':        [ANOM_CDN+'14_eyes_close.jpg?v=1778704844'],
+  '15.jpg':        [ANOM_CDN+'15_hand.jpg?v=1778704846'],
+  '16.jpg':        [ANOM_CDN+'16_pentagram.jpg?v=1778704847'],
+  '17.jpg':        [ANOM_CDN+'17_hand.jpg?v=1778704845'],
+  '18.jpg':        [ANOM_CDN+'18_face.jpg?v=1778704845'],
+  '19.jpg':        [ANOM_CDN+'19_stab.jpg?v=1778704845'],
+  '20.jpg':        [ANOM_CDN+'20_suicide.jpg?v=1778704846'],
+  '21.jpg':        [ANOM_CDN+'21_entity.jpg?v=1778704846'],
+  '22.jpg':        [ANOM_CDN+'22_guts.jpg?v=1778704845'],
+  '25.jpg':        [ANOM_CDN+'25_entity.jpg?v=1778704846', ANOM_CDN+'25_face_png.jpg?v=1778704846']
+};
+/* Random "wild" anomaly images — can drop in on any non-celeb post at low
+   probability. Their presence is itself the anomaly. */
+var RANDOM_ANOMALY_FILES=[
+  ANOM_CDN+'random1.jpg?v=1778704843',
+  ANOM_CDN+'random2.jpg?v=1778704843',
+  ANOM_CDN+'random3.jpg?v=1778704843',
+  ANOM_CDN+'random4.jpg?v=1778704843'
+];
+/* Celebrity / known-vendor photos that should NEVER get a random anomaly
+   pasted over them — keeps the canon photos canon. */
+var CELEB_PHOTOS={'3glaive.jpg':1,'5yves.jpg':1,'12.jpg':1,'17.jpg':1,'21.jpg':1};
+/* Files that should slowly cross-fade in (rather than instant-swap) once the
+   trigger area (bottom half of the photo) scrolls into view. Match by substring. */
+/* Substring matches on the anomaly URL — now uses underscores to match the
+   Shopify CDN file naming. */
+var FADE_IN_FILES=['9girlback_repitilian','5yves_gore','5yves_stabs','7pants_blood','18_face','19_stab','3glaive_face','8chinomara_entity','12_entity','13_face'];
+/* Files that should fast-blink on/off intermittently — eyes closing/opening. */
+var BLINK_FILES=['14_eyes_close'];
+/* Files that pulse — slowly fade in, briefly hold, slowly fade out, pause. */
+var PULSE_FILES=['17_hand'];
+/* Strobe-flash files — rapid bursts with pauses between them. */
+var STROBE_FILES=[];
+/* Per-photo object-position overrides so anomaly edits frame correctly.
+   '7pants' needs to show the bottom (blood); 16 and 19 need the top
+   (pentagram + knife frame). The same value is applied to the anomaly overlay
+   so the swap aligns with the original. */
+var PHOTO_POSITION={
+  '7pants.jpg':'bottom',
+  '8chinomara.jpg':'top',
+  '12.jpg':'top',
+  '15.jpg':'top',
+  '16.jpg':'top',
+  '19.jpg':'top'
+};
+
+/* ---- Game state ---- */
+var igScore=0,igHighScore=parseInt(localStorage.getItem('wg_ig_hs')||'0');
+var igCorruption=0,igCombo=1,igComboCount=0;
+var igLoop=0,igPhotoPtr=0,igPosts=[],igActiveTimeouts=[];
+var igScrollGate=Infinity;
+var igPhotoOrder=[],igLastPhoto=null;
+/* Rolling window of the last 5 photos used. New posts won't reuse any photo
+   currently in this list, so the same image (or its edit variant) can't
+   reappear sooner than 5 posts later. */
+var igRecentPhotos=[];
+var IG_NO_REPEAT_WINDOW=5;
+/* Tracks whether a game is currently in progress (post-startFeed, pre-gameover).
+   Used so the user can leave Wickedgram via the home button and come back
+   without resetting score/loop/feed. */
+var igGameActive=false;
+/* Dev-test mode flag — disables infinite scroll auto-append so the fixed
+   anomaly-showcase feed doesn't get padded with random posts. */
+var igDevMode=false;
+/* Anti-cheat: session start timestamp set when startFeed runs. Used to
+   reject leaderboard submissions for suspiciously short games (<30s). */
+var igGameStartTs=0;
+/* Firestore handle (set after firebase init) */
+var _igDb=null;
+try{ _igDb = firebase.firestore(); }catch(e){ /* SDK missing — leaderboard silently disabled */ }
+function _buildPhotoOrder(){
+  igPhotoOrder=PHOTOS.slice();
+  for(var i=igPhotoOrder.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=igPhotoOrder[i];igPhotoOrder[i]=igPhotoOrder[j];igPhotoOrder[j]=t;}
+  /* Push any recently-used photos to the back so the front of the order is
+     "fresh" — avoids loop-boundary repeats AND any photo from the rolling
+     recent-window appearing in the next 5 positions. */
+  if(igRecentPhotos.length && igPhotoOrder.length>igRecentPhotos.length+1){
+    for(var k=0;k<Math.min(igRecentPhotos.length,igPhotoOrder.length-1);k++){
+      if(igRecentPhotos.indexOf(igPhotoOrder[k])>=0){
+        for(var swp=k+1;swp<igPhotoOrder.length;swp++){
+          if(igRecentPhotos.indexOf(igPhotoOrder[swp])<0){
+            var tmp=igPhotoOrder[k]; igPhotoOrder[k]=igPhotoOrder[swp]; igPhotoOrder[swp]=tmp;
+            break;
+          }
+        }
+      }
+    }
+  }
+}
+_buildPhotoOrder();
+var igTutorialSeen=false;
+
+/* ---- DOM refs ---- */
+var igFeedScroll=document.getElementById('igFeedScroll');
+var igCorrBar=document.getElementById('igCorrBar');
+var igHudScore=document.getElementById('igHudScore');
+var igHudCombo=document.getElementById('igHudCombo');
+var igGameover=document.getElementById('igGameover');
+var igGoLine1=document.getElementById('igGoLine1');
+var igGoScores=document.getElementById('igGoScores');
+var igGoRestart=document.getElementById('igGoRestart');
+var igTutorial=document.getElementById('igTutorial');
+
+/* ---- Helpers ---- */
+function rnd(arr){return arr[Math.floor(Math.random()*arr.length)];}
+function rndInt(a,b){return Math.floor(Math.random()*(b-a+1))+a;}
+function anomalyChance(){return Math.min(0.72,0.40+igLoop*0.06);}
+function intensity(){return Math.min(1.0,igLoop*0.28);}
+
+/* ---- Bottom-half trigger helper ----------------------------------------
+   Drops an invisible sentinel into the bottom half of the post image, watches
+   it with IntersectionObserver, and fires the callback after a small random
+   pre-delay once that area becomes visible. Used by every transition anomaly
+   (fade-ins, pulses, time drains, etc.) so they only kick in when the player
+   has actually scrolled the post's lower portion into view. */
+function watchBottomHalf(imgWrap, callback, minDelay, maxDelay){
+  if(!imgWrap) return;
+  var sentinel=document.createElement('div');
+  sentinel.style.cssText='position:absolute;left:0;right:0;top:50%;bottom:0;pointer-events:none;';
+  imgWrap.appendChild(sentinel);
+  var fired=false;
+  var obs=new IntersectionObserver(function(entries){
+    if(fired) return;
+    if(entries[0].isIntersecting && entries[0].intersectionRatio>0.55){
+      fired=true; obs.disconnect();
+      var dmin=(minDelay!=null)?minDelay:0;
+      var dmax=(maxDelay!=null)?maxDelay:1500;
+      var tid=setTimeout(callback, rndInt(dmin,dmax));
+      igActiveTimeouts.push(tid);
+    }
+  },{root:igFeedScroll,threshold:[0.3,0.55,0.9]});
+  obs.observe(sentinel);
+}
+
+/* ---- Anomaly image loader ---- */
+function tryAnomalyImage(photo,loop){
+  return new Promise(function(resolve){
+    var known=ANOMALY_FILE_MAP[photo];
+    if(known&&known.length>0){
+      var idx=Math.min(loop||0,known.length-1);
+      var img=new Image();
+      img.onload=function(){resolve(known[idx]);};
+      img.onerror=function(){resolve(null);};
+      img.src=known[idx];
+      return;
+    }
+    resolve(null);
+  });
+}
+
+/* ---- CSS glitch pool (for photos without anomaly files) ---- */
+var CSS_GLITCH=['anom-bw-drain','anom-time-drain','anom-time-breathe','anom-time-bleed','anom-noise'];
+
+/* ---- Generate post data ---- */
+function generatePostData(){
+  /* Walk forward in the shuffled order until we find a photo that isn't
+     in the recent-window. Guarantees no photo (or its edit variant) reuses
+     within IG_NO_REPEAT_WINDOW posts. */
+  var photo=igPhotoOrder[igPhotoPtr%igPhotoOrder.length];
+  var safety=0;
+  while(igRecentPhotos.indexOf(photo)>=0 && safety<igPhotoOrder.length){
+    igPhotoPtr++;
+    if(igPhotoPtr%igPhotoOrder.length===0){igLoop++;_buildPhotoOrder();}
+    photo=igPhotoOrder[igPhotoPtr%igPhotoOrder.length];
+    safety++;
+  }
+  igLastPhoto=photo;
+  /* Maintain the rolling recent-window. */
+  igRecentPhotos.push(photo);
+  if(igRecentPhotos.length>IG_NO_REPEAT_WINDOW) igRecentPhotos.shift();
+  igPhotoPtr++;
+  if(igPhotoPtr>0&&igPhotoPtr%igPhotoOrder.length===0){igLoop++;_buildPhotoOrder();}
+  /* Random "wild" anomaly: low chance to replace the photo with a
+     RANDOM_ANOMALY_FILES image. Never applied to celeb-locked photos.
+     If it fires, the post is automatically anomalous. */
+  var randomAnom=false;
+  var origNormalPhoto=photo; /* preserved for restoreToNormal on report */
+  if(!CELEB_PHOTOS[photo] && Math.random()<0.07){
+    photo=RANDOM_ANOMALY_FILES[Math.floor(Math.random()*RANDOM_ANOMALY_FILES.length)];
+    randomAnom=true;
+  }
+  var anom=randomAnom||Math.random()<anomalyChance();
+  var atype=null,tvar=null;
+  if(anom){
+    /* Random "wild" anomaly takes precedence — the photo IS the anomaly,
+       no further atype processing needed. */
+    if(randomAnom){
+      atype='random';
+    } else {
+    /* If this photo has an actual edited anomaly image on disk, lean heavily
+       toward using it — those are the strongest, most authored anomalies.
+       Photos with no edited file fall back to the original distribution. */
+    var hasEditedFile=!!ANOMALY_FILE_MAP[photo];
+    var r=Math.random();
+    if(hasEditedFile){
+      if(r<0.78) atype='image';
+      else if(r<0.86) atype='time';
+      else if(r<0.94) atype='text';
+      else atype='effect';
+    } else {
+      if(r<0.30) atype='image'; else if(r<0.55) atype='time'; else if(r<0.82) atype='text'; else atype='effect';
+    }
+    }
+    if(atype==='text'){
+      var tv=Math.random();
+      if(tv<0.20) tvar='likes'; else if(tv<0.38) tvar='username';
+      else if(tv<0.55) tvar='caption'; else if(tv<0.70) tvar='timestamp';
+      else if(tv<0.83) tvar='comments';
+      else if(tv<0.92) tvar='likes_count';
+      else tvar='timestamp_backward';
+    }
+    if(atype==='time'){
+      var st=Math.random();
+      if(st<0.33) tvar='drain'; else if(st<0.66) tvar='breathe'; else tvar='bleed';
+    }
+    if(atype==='effect'){
+      var ef=Math.random();
+      if(ef<0.18) tvar='zoom'; else if(ef<0.34) tvar='username_flicker';
+      else if(ef<0.48) tvar='heart_prefilled'; else if(ef<0.64) tvar='void';
+      else if(ef<0.80) tvar='blink';
+      else tvar='noise';
+    }
+  }
+  var bl=rndInt(80,2400);
+  return {
+    photo:photo,anomalous:anom,anomalyType:atype,textVariant:tvar,
+    loop:igLoop,intensity:intensity(),
+    username:PHOTO_USERNAMES[photo]||rnd(NORMAL_USERNAMES),
+    likes:bl>999?(bl/1000).toFixed(1)+'k likes':bl+' likes',
+    caption:PHOTO_USERNAMES[photo]?'':pickCaption(photo),
+    comments:'View all '+rndInt(3,120)+' comments',
+    timestamp:rnd(TIMESTAMPS_NORMAL),
+    _origPhoto:randomAnom?origNormalPhoto:photo,
+    acted:false,correct:null,el:null,imgWrap:null,timeoutIds:[]
+  };
+}
+
+/* ---- Describe anomaly for debug panel ---- */
+function describeAnomaly(data){
+  if(!data.anomalous){
+    return '<span class="dbg-good">✓ NORMAL</span><br>Heart this post.';
+  }
+  var t=data.anomalyType, v=data.textVariant||'—';
+  var label='<span class="dbg-bad">⚠ ANOMALY</span><br>';
+  /* Pull a clean filename out of either a local path or a Shopify URL. */
+  function _fname(url){
+    var s=(url||'').split('/').pop();
+    return s.split('?')[0];
+  }
+  if(t==='random'){
+    return label+'wild image: '+_fname(data.photo);
+  }
+  if(t==='image'){
+    var known=ANOMALY_FILE_MAP[data.photo];
+    if(known&&known.length>0){
+      var fi=Math.min(data.loop,known.length-1);
+      return label+'image swapped → '+_fname(known[fi]);
+    }
+    var hv=(data.photo+data.loop).split('').reduce(function(a,c){return a+c.charCodeAt(0);},0);
+    return label+'CSS glitch: '+CSS_GLITCH[hv%CSS_GLITCH.length];
+  }
+  if(t==='time'){
+    var tnames={drain:'color drain (14s)',breathe:'subtle position drift',bleed:'chromatic split'};
+    return label+'time: '+(tnames[v]||v)+'<br>triggers 1–3s after bottom of pic visible';
+  }
+  if(t==='text'){
+    var tnames2={
+      likes:'cursed like count',username:'cursed username',
+      caption:'caption format broken (no username, right-aligned monospace caps)',timestamp:'cursed timestamp',
+      comments:'cursed comments line',likes_count:'likes counting down toward 0',
+      caption_type:'caption self-typing',timestamp_backward:'timestamp going backward'
+    };
+    return label+'text: '+(tnames2[v]||v);
+  }
+  if(t==='effect'){
+    var enames={
+      zoom:'slow creep zoom (28s)',username_flicker:'username flickers cursed',
+      heart_prefilled:'heart already filled',void:'image replaced by void/static',
+      blink:'avatar blinking entity',
+      noise:'analog noise / static overlay'
+    };
+    return label+'effect: '+(enames[v]||v);
+  }
+  return label+t+' / '+v;
+}
+
+/* ---- Build post DOM ---- */
+var SVG_HEART='<svg width="36" height="34" viewBox="0 0 28 26" fill="none"><path class="heart-path" d="M14 23s-11-7.2-11-13a6 6 0 0112 0 6 6 0 0112 0c0 5.8-11 13-13 13z" stroke="#262626" stroke-width="2.2" fill="none"/></svg>';
+var SVG_COMMENT='<svg width="35" height="34" viewBox="0 0 27 26" fill="none"><path d="M4 4h19v14H4z" stroke="#262626" stroke-width="2.2" fill="none" rx="3"/><path d="M8 18l-3 5 6-4" stroke="#262626" stroke-width="2.2" fill="none" stroke-linejoin="round"/></svg>';
+var SVG_SHARE='<svg width="35" height="34" viewBox="0 0 27 26" fill="none"><path d="M24 13L3 3l3.5 10L3 23l21-10z" stroke="#262626" stroke-width="2.2" fill="none" stroke-linejoin="round" stroke-linecap="round"/><path d="M6.5 13h8" stroke="#262626" stroke-width="2.2" stroke-linecap="round"/></svg>';
+var SVG_FLAG='<svg width="38" height="40" viewBox="0 0 22 26" fill="none"><line x1="4" y1="3" x2="4" y2="25" stroke="#8b0000" stroke-width="2.8" stroke-linecap="round"/><path d="M4 4h14l-4 6 4 6H4" stroke="#8b0000" stroke-width="2.6" fill="rgba(139,0,0,0.20)" stroke-linejoin="round"/></svg>';
+
+
+function buildPost(data){
+  var post=document.createElement('div');
+  post.className='ig-post';
+
+  /* Snapshot the "normal" values BEFORE any anomaly mutations happen.
+     Used by restoreToNormal() on correct report — the post visually
+     reverts to its non-anomalous form once the player flags it. */
+  data._origUsername = data.username;
+  data._origLikes    = data.likes;
+  data._origCaption  = data.caption;
+  data._origComments = data.comments;
+  data._origTimestamp= data.timestamp;
+  /* For random-anomaly posts data.photo is already the random file —
+     _origPhoto was set in generatePostData so it points at the would-be
+     normal photo instead. */
+  if(!data._origPhoto) data._origPhoto = data.photo;
+
+  /* Apply text anomalies */
+  if(data.anomalous&&data.anomalyType==='text'){ post.classList.add('ig-post--text-anom');
+    var lc=Math.min(data.loop,3);
+    if(data.textVariant==='likes') data.likes=rnd(CURSED_LIKES);
+    else if(data.textVariant==='username') data.username=rnd(CURSED_USERNAMES);
+    else if(data.textVariant==='caption'){
+      var rs=CAPTION_ROT[Math.floor(Math.random()*CAPTION_ROT.length)];
+      data.caption=rs[Math.min(lc,rs.length-1)];
+    }
+    else if(data.textVariant==='timestamp') data.timestamp=rnd(TIMESTAMPS_CURSED);
+    else if(data.textVariant==='comments') data.comments=rnd(CURSED_COMMENTS);
+    /* new: likes count up, caption typing, timestamp backward handled post-build */
+  }
+
+  /* Header */
+  var hdr=document.createElement('div'); hdr.className='ig-post-header';
+  var av=document.createElement('div'); av.className='ig-avatar';
+  av.textContent=data.username[0].toUpperCase();
+  if(data.anomalous&&data.anomalyType==='text'&&Math.random()<0.5){
+    av.style.transform='rotate(180deg)';
+    av.style.transition='transform 0.4s ease';
+  }
+  var un=document.createElement('div'); un.className='ig-post-username';
+  un.textContent=data.username;
+  var dt=document.createElement('div'); dt.className='ig-post-dots'; dt.textContent='···';
+  hdr.appendChild(av); hdr.appendChild(un); hdr.appendChild(dt);
+
+  /* Image */
+  var iw=document.createElement('div'); iw.className='ig-img-wrap';
+  var img=document.createElement('img'); img.src=PHOTO_CDN+data.photo; img.alt='';
+  if(data.photo==='15.jpg'||data.photo.indexOf('15_hand')>=0) img.style.objectFit='cover';
+  /* Per-photo object-position overrides so anomaly edits frame correctly. */
+  if(PHOTO_POSITION[data.photo]) img.style.objectPosition=PHOTO_POSITION[data.photo];
+  iw.appendChild(img); data.imgWrap=iw;
+
+  /* Actions */
+  var acts=document.createElement('div'); acts.className='ig-actions';
+  var hb=document.createElement('div'); hb.className='ig-act'; hb.innerHTML=SVG_HEART;
+  var cb=document.createElement('div'); cb.className='ig-act dimmed'; cb.innerHTML=SVG_COMMENT;
+  var sb=document.createElement('div'); sb.className='ig-act dimmed'; sb.innerHTML=SVG_SHARE;
+  var rb=document.createElement('div'); rb.className='ig-act ig-spacer'; rb.innerHTML=SVG_FLAG;
+  acts.appendChild(hb); acts.appendChild(cb); acts.appendChild(sb); acts.appendChild(rb);
+
+  /* Text */
+  var tx=document.createElement('div'); tx.className='ig-post-text';
+  var lk=document.createElement('div'); lk.className='ig-likes-line'; lk.textContent=data.likes;
+  var cp=document.createElement('div'); cp.className='ig-caption-line';
+  if(data.anomalous && data.anomalyType==='text' && data.textVariant==='caption'){
+    /* Misaligned-format caption anomaly: drop the username prefix, keep raw
+       caption text, and tag the element so the CSS forces uppercase /
+       right-align / monospace styling that breaks IG layout conventions. */
+    cp.classList.add('cap-anom-rot');
+    cp.textContent=data.caption||'';
+  } else {
+    cp.innerHTML=data.caption?'<span class="cap-user">'+data.username+'</span> '+data.caption:'';
+  }
+  var cm=document.createElement('div'); cm.className='ig-comments-line'; cm.textContent=data.comments;
+  var ts=document.createElement('div'); ts.className='ig-time-line'; ts.textContent=data.timestamp;
+  tx.appendChild(lk); tx.appendChild(cp); tx.appendChild(cm); tx.appendChild(ts);
+
+  post.appendChild(hdr); post.appendChild(iw); post.appendChild(acts); post.appendChild(tx);
+  data.el=post;
+
+  /* Wire buttons */
+  /* Broken heart on ~10% of anomalous non-text posts (was 18%) */
+  if(data.anomalous && data.anomalyType!=='text' && Math.random()<0.10){
+    hb.innerHTML='<svg width="36" height="34" viewBox="0 0 28 26" fill="none"><path d="M14 23s-11-7.2-11-13a6 6 0 0112 0" stroke="#262626" stroke-width="2.2" fill="none"/><path d="M14 10a6 6 0 0112 0c0 5.8-11 13-13 13" stroke="#262626" stroke-width="2.2" fill="none" stroke-dasharray="3 2"/><line x1="14" y1="10" x2="12" y2="15" stroke="#262626" stroke-width="1.8"/><line x1="12" y1="15" x2="16" y2="18" stroke="#262626" stroke-width="1.8"/></svg>';
+  }
+  hb.addEventListener('click',function(){handleAction(data,'heart',hb,rb);});
+  rb.addEventListener('click',function(){handleAction(data,'report',rb,hb);});
+
+  /* Anomaly effects */
+  if(data.anomalous){
+    if(data.anomalyType==='image') applyImageAnomaly(data);
+    else if(data.anomalyType==='time') scheduleTimeAnomaly(data);
+    else if(data.anomalyType==='effect') applyEffectAnomaly(data,hb,lk,un,ts);
+  }
+  return post;
+}
+
+/* ---- Image anomaly ---------------------------------------------------------
+   Universal trigger rule: every transition anomaly waits until the BOTTOM HALF
+   of the post photo scrolls into view, then fires within 1–3 seconds. Pulses
+   and blinks loop from that point; fades stay. The BW drain CSS glitch follows
+   the same rule and is banned outright on 13.jpg (already nearly B&W).        */
+function applyImageAnomaly(data){
+  tryAnomalyImage(data.photo,data.loop).then(function(path){
+    if(!data.imgWrap) return;
+    /* helper — make an overlay img with the same object-position as the original */
+    function makeOverlayImg(src){
+      var o=document.createElement('img');
+      o.src=src; o.alt=''; o.draggable=false;
+      var pos=PHOTO_POSITION[data.photo];
+      if(pos) o.style.objectPosition=pos;
+      if(src.indexOf('15_hand')>=0) o.style.objectFit='fill';
+      return o;
+    }
+    if(path){
+      var i=data.imgWrap.querySelector('img');
+      if(i){
+        /* PULSE — slow fade in, hold, fade out, pause, repeat */
+        for(var pli=0;pli<PULSE_FILES.length;pli++){
+          if(path.indexOf(PULSE_FILES[pli])>=0){
+            var pulse=document.createElement('div');
+            pulse.className='anom-pulse-overlay';
+            pulse.appendChild(makeOverlayImg(path));
+            data.imgWrap.appendChild(pulse);
+            watchBottomHalf(data.imgWrap, function(){
+              var doPulse=function(){
+                if(data.acted) return; /* freeze cycle once user has acted */
+                pulse.classList.add('active');
+                var visibleId=setTimeout(function(){
+                  if(data.acted) return;
+                  pulse.classList.remove('active');
+                  var pauseId=setTimeout(doPulse, rndInt(4000,8000));
+                  igActiveTimeouts.push(pauseId);
+                }, rndInt(6000,8500));
+                igActiveTimeouts.push(visibleId);
+              };
+              doPulse();
+            });
+            return;
+          }
+        }
+        /* STROBE — kept for future use, currently empty */
+        for(var si=0;si<STROBE_FILES.length;si++){
+          if(path.indexOf(STROBE_FILES[si])>=0){
+            var strobe=document.createElement('div');
+            strobe.className='anom-strobe-overlay';
+            strobe.appendChild(makeOverlayImg(path));
+            data.imgWrap.appendChild(strobe);
+            watchBottomHalf(data.imgWrap, function(){
+              var doBurst=function(){
+                if(data.acted) return; /* freeze cycle once user has acted */
+                var flashes=rndInt(5,9), step=0, total=flashes*2;
+                var stepFn=function(){
+                  if(data.acted) return;
+                  if(step>=total){
+                    strobe.classList.remove('on');
+                    var nextId=setTimeout(doBurst, rndInt(2500,5500));
+                    igActiveTimeouts.push(nextId);
+                    return;
+                  }
+                  if(step%2===0) strobe.classList.add('on');
+                  else           strobe.classList.remove('on');
+                  step++;
+                  var stepId=setTimeout(stepFn, rndInt(45,90));
+                  igActiveTimeouts.push(stepId);
+                };
+                stepFn();
+              };
+              doBurst();
+            });
+            return;
+          }
+        }
+        /* BLINK — fast eyes-close / open cycle */
+        for(var bi=0;bi<BLINK_FILES.length;bi++){
+          if(path.indexOf(BLINK_FILES[bi])>=0){
+            var blink=document.createElement('div');
+            blink.className='anom-blink-overlay';
+            blink.appendChild(makeOverlayImg(path));
+            data.imgWrap.appendChild(blink);
+            watchBottomHalf(data.imgWrap, function(){
+              var doBlink=function(){
+                if(data.acted) return; /* freeze cycle once user has acted */
+                blink.classList.add('blink');
+                var holdId=setTimeout(function(){
+                  if(data.acted) return;
+                  blink.classList.remove('blink');
+                  var nextId=setTimeout(doBlink, rndInt(5000,12000));
+                  igActiveTimeouts.push(nextId);
+                }, rndInt(140,260));
+                igActiveTimeouts.push(holdId);
+              };
+              doBlink();
+            });
+            return;
+          }
+        }
+        /* FADE — slow 6s cross-fade, stays visible. Fires AT 0s once the
+           bottom half scrolls in (no pre-delay) — the 6s fade itself is
+           the slow build, no extra wait needed on top of it. */
+        for(var fi=0;fi<FADE_IN_FILES.length;fi++){
+          if(path.indexOf(FADE_IN_FILES[fi])>=0){
+            var fade=document.createElement('div');
+            fade.className='anom-fade-overlay';
+            fade.appendChild(makeOverlayImg(path));
+            data.imgWrap.appendChild(fade);
+            watchBottomHalf(data.imgWrap, function(){
+              fade.classList.add('active');
+            }, 0, 0);
+            return;
+          }
+        }
+        /* Default: instant swap */
+        i.src=path;
+        if(path.indexOf('15_hand')>=0) i.style.objectFit='fill';
+      }
+      if(data.intensity>0.3) data.imgWrap.classList.add('anom-scanlines');
+    } else {
+      var hv=(data.photo+data.loop).split('').reduce(function(a,c){return a+c.charCodeAt(0);},0);
+      var cls=CSS_GLITCH[hv%CSS_GLITCH.length];
+      /* 13.jpg is already nearly black-and-white — never apply BW drain to it.
+         Roll to the next CSS glitch in the rotation instead. */
+      if(cls==='anom-bw-drain' && data.photo==='13.jpg'){
+        cls=CSS_GLITCH[(hv+1)%CSS_GLITCH.length];
+      }
+      /* ALL CSS-glitch fallbacks now wait for bottom-half-of-pic in view.
+         Drain fires instantly (0ms) since the animation itself is long.
+         Others use the default 0–1.5s window. */
+      var glitchMin, glitchMax;
+      if(cls==='anom-time-drain' || cls==='anom-bw-drain'){ glitchMin=0; glitchMax=0; }
+      var secondCls = (data.loop>=2) ? CSS_GLITCH[(hv+1)%CSS_GLITCH.length] : null;
+      watchBottomHalf(data.imgWrap, function(){
+        data.imgWrap.classList.add(cls);
+        if(data.intensity>0.3) data.imgWrap.classList.add('anom-scanlines');
+        if(secondCls) data.imgWrap.classList.add(secondCls);
+      }, glitchMin, glitchMax);
+    }
+  });
+}
+
+
+/* ---- Effect anomaly (7,8,9,11,13,14) ---- */
+function applyEffectAnomaly(data,hb,lk,un,ts){
+  var iw=data.imgWrap;
+  var v=data.textVariant;
+
+  /* 7: creep zoom */
+  if(v==='zoom'){
+    var obs7=new IntersectionObserver(function(entries){
+      if(entries[0].isIntersecting){ iw.classList.add('anom-zoom'); obs7.disconnect(); }
+    },{threshold:0.2});
+    obs7.observe(iw);
+  }
+
+  /* 8: username flicker — username stays normal, briefly flashes to the
+     cursed REBUKE name and snaps back. Recurs on a random cadence so
+     players have to be paying attention to catch it. */
+  if(v==='username_flicker'){
+    var obs8=new IntersectionObserver(function(entries){
+      if(entries[0].isIntersecting){
+        var orig=un.textContent;
+        var doFlicker=function(){
+          un.textContent=FLICKER_CURSED;
+          var revertId=setTimeout(function(){
+            un.textContent=orig;
+            var nextId=setTimeout(doFlicker, rndInt(4500, 8500));
+            igActiveTimeouts.push(nextId);
+          }, rndInt(110, 180));
+          igActiveTimeouts.push(revertId);
+        };
+        var firstId=setTimeout(doFlicker, rndInt(2000, 4500));
+        igActiveTimeouts.push(firstId);
+        obs8.disconnect();
+      }
+    },{threshold:0.3});
+    obs8.observe(iw);
+  }
+
+  /* 9: heart already filled */
+  if(v==='heart_prefilled'){
+    hb.classList.add('heart-prefilled');
+    var p=hb.querySelector('.heart-path');
+    if(p){p.setAttribute('fill','#ed4956');p.setAttribute('stroke','#ed4956');}
+  }
+
+  /* 11: void — no image, just static */
+  if(v==='void'){
+    var img=iw.querySelector('img');
+    if(img) img.style.opacity='0';
+    iw.classList.add('anom-void');
+  }
+
+  /* 13: avatar blink */
+  if(v==='blink'){
+    var av=data.el.querySelector('.ig-avatar');
+    if(av) av.classList.add('anom-blink-avatar');
+  }
+
+  /* 15: pure image noise / static overlay */
+  if(v==='noise'){
+    iw.classList.add('anom-noise');
+    if(data.intensity>0.4) iw.classList.add('anom-scanlines');
+  }
+}
+
+/* ---- Live text anomalies (run after post added to DOM) ---- */
+function applyLiveTextAnomaly(data,lk,cp,ts){
+  if(!data.anomalous||data.anomalyType!=='text') return;
+
+  /* 4: likes count DOWN to zero (was: counting up) */
+  if(data.textVariant==='likes_count'){
+    var count=rndInt(800,2400);
+    lk.textContent=count>999?(count/1000).toFixed(1)+'k likes':count+' likes';
+    var iv4=setInterval(function(){
+      if(data.acted){clearInterval(iv4);return;}
+      count-=rndInt(1,9);
+      if(count<=0){
+        lk.textContent='0 likes (you are the only one here)';
+        clearInterval(iv4); return;
+      }
+      lk.textContent=count>999?(count/1000).toFixed(1)+'k likes':count+' likes';
+    },700);
+    igActiveTimeouts.push(iv4);
+  }
+
+  /* 12: timestamp counts backward */
+  if(data.textVariant==='timestamp_backward'){
+    var tvals=['just now','1 second ago','0 seconds ago','-1 second ago',
+      '-1 minute ago','-3 hours from now','3 years from now',
+      'before this existed','\u221e seconds ago'];
+    var ti=0;
+    var iv12=setInterval(function(){
+      if(data.acted){clearInterval(iv12);return;}
+      ts.textContent=tvals[Math.min(ti++,tvals.length-1)];
+      if(ti>=tvals.length) clearInterval(iv12);
+    },1800);
+    igActiveTimeouts.push(iv12);
+  }
+}
+
+/* ---- Time anomaly ----------------------------------------------------------
+   Trigger rule: wait until bottom half of pic is in view, then fire.
+   `drain` MUST start at 0ms (the 14s color-drain CSS animation itself takes
+   long enough — we don't want any extra pre-delay on top of that).
+   `breathe` / `bleed` use the standard 0–1.5s window. */
+function scheduleTimeAnomaly(data){
+  if(!data.imgWrap) return;
+  var minD, maxD;
+  if(data.textVariant==='drain'){ minD=0; maxD=0; }
+  watchBottomHalf(data.imgWrap, function(){
+    if(!data.imgWrap) return;
+    if(data.textVariant==='drain'){
+      data.imgWrap.classList.add('anom-time-drain');
+      if(data.intensity>0.5) data.imgWrap.classList.add('anom-scanlines');
+    } else if(data.textVariant==='bleed'){
+      data.imgWrap.classList.add('anom-time-bleed');
+      data.imgWrap.classList.add('anom-scanlines');
+    } else {
+      data.imgWrap.classList.add('anom-time-breathe');
+    }
+  }, minD, maxD);
+}
+
+/* ---- Audio system --------------------------------------------------------
+   All sound files hosted on the Shopify CDN. One-shot sounds use plain
+   HTMLAudioElement; the tutorial LOOP uses Web Audio API for true gapless
+   looping (HTMLAudioElement.loop=true introduces audible gaps in most
+   browsers between iterations — Web Audio buffer-source loop is sample-
+   accurate). Wrapped in try/catch so a missing file doesn't break the game. */
+var SND_CDN='https://cdn.shopify.com/s/files/1/0734/4671/9780/files/';
+var SOUNDS={};
+(function(){
+  var defs={
+    beep:     SND_CDN+'beeep_PLAY_ON_REPORT_CORRECT_SECONDS_BEFORE_NORMAL_SWITCH_THEN_MAKE_IT_CUT_OFF_ON_SWITCH.mp3?v=1778707326',
+    restore:  SND_CDN+'anom_returns_to_normal.wav?v=1778707327',
+    wrong:    SND_CDN+'wrong_like_or_report.wav?v=1778707326',
+    start:    SND_CDN+'button_start.wav?v=1778707327',
+    correct:  SND_CDN+'button_correct.mp3?v=1778707326',
+    gameover: SND_CDN+'game_over.wav?v=1778707327',
+    select:   SND_CDN+'select_WHERE_IS_NO_OTHER_SOUND_ONLY_USE_WHERE_APPLICABLE.wav?v=1778707326'
+  };
+  for(var k in defs){
+    var a=new Audio(defs[k]);
+    a.preload='auto';
+    a.volume=0.55;
+    SOUNDS[k]=a;
+  }
+  SOUNDS.beep.volume=0.50;
+})();
+function playSnd(name){
+  var s=SOUNDS[name]; if(!s) return;
+  try{ s.currentTime=0; var p=s.play(); if(p&&p.catch) p.catch(function(){}); }catch(e){}
+}
+function stopSnd(name){
+  var s=SOUNDS[name]; if(!s) return;
+  try{ s.pause(); s.currentTime=0; }catch(e){}
+}
+
+/* ---- Seamless tutorial loop (Web Audio API) -----------------------------
+   Decoded once into an AudioBuffer, then looped via AudioBufferSourceNode.
+   Browser handles the loop sample-accurately — no perceptible gap between
+   iterations, regardless of file length or format. */
+var TUT_LOOP_URL=SND_CDN+'tutorial_LOOP.mp3?v=1778707326';
+var _tutCtx=null, _tutBuf=null, _tutSrc=null, _tutGain=null, _tutLoading=false;
+function _ensureTutCtx(){
+  if(_tutCtx) return _tutCtx;
+  var Ctx=window.AudioContext||window.webkitAudioContext;
+  if(!Ctx) return null;
+  _tutCtx=new Ctx();
+  return _tutCtx;
+}
+function _loadTutBuf(){
+  if(_tutBuf||_tutLoading) return;
+  var ctx=_ensureTutCtx(); if(!ctx) return;
+  _tutLoading=true;
+  fetch(TUT_LOOP_URL).then(function(r){return r.arrayBuffer();})
+    .then(function(b){return ctx.decodeAudioData(b);})
+    .then(function(buf){_tutBuf=buf; _tutLoading=false;})
+    .catch(function(){_tutLoading=false;});
+}
+function playTutLoop(){
+  var ctx=_ensureTutCtx(); if(!ctx) return;
+  if(ctx.state==='suspended') ctx.resume();
+  if(!_tutBuf){
+    _loadTutBuf();
+    /* Retry once buffer arrives */
+    var retry=setInterval(function(){
+      if(_tutBuf){ clearInterval(retry); playTutLoop(); }
+    },120);
+    return;
+  }
+  if(_tutSrc){ try{_tutSrc.stop();}catch(e){} _tutSrc=null; }
+  _tutSrc=ctx.createBufferSource();
+  _tutSrc.buffer=_tutBuf;
+  _tutSrc.loop=true;
+  _tutGain=ctx.createGain();
+  _tutGain.gain.value=0.32;
+  _tutSrc.connect(_tutGain).connect(ctx.destination);
+  _tutSrc.start(0);
+}
+function stopTutLoop(){
+  if(_tutSrc){ try{_tutSrc.stop();}catch(e){} _tutSrc=null; }
+}
+/* Preload the buffer the moment the script runs so it's ready at first play. */
+_loadTutBuf();
+
+function stopAllSounds(){
+  for(var k in SOUNDS) stopSnd(k);
+  stopTutLoop();
+}
+/* No longer exposing playSnd/stopSnd globally — sounds are wickedgram-only. */
+
+/* ---- Restore a post to its non-anomaly state ----------------------------
+   Called on a CORRECT REPORT — the system "cleans" the post. Removes all
+   anomaly overlays/classes, restores the original photo, reverts cursed
+   text fields, undoes effect-anomaly classes, resets heart-prefilled, and
+   relies on the data.acted flag (already true) to stop any running blink/
+   pulse/strobe loops + live text intervals on their next tick. */
+function restoreToNormal(data){
+  if(!data.el) return;
+  var iw=data.imgWrap;
+
+  /* 1. Remove all anomaly overlay elements + glitch classes from imgWrap */
+  if(iw){
+    iw.querySelectorAll('.anom-fade-overlay,.anom-pulse-overlay,.anom-blink-overlay,.anom-strobe-overlay').forEach(function(el){ el.remove(); });
+    iw.classList.remove('anom-bw-drain','anom-time-drain','anom-time-breathe','anom-time-bleed','anom-noise','anom-scanlines','anom-zoom','anom-void','anom-crack');
+  }
+
+  /* 2. Restore original image src + reset inline styles set by anomalies */
+  var img=iw?iw.querySelector('img'):null;
+  if(img){
+    if(data._origPhoto) img.src=data._origPhoto;
+    img.style.opacity='';
+    img.style.objectFit='';
+    img.style.transform='';
+  }
+
+  /* 3. Restore the username text + avatar character + avatar rotation */
+  var un=data.el.querySelector('.ig-post-username');
+  if(un) un.textContent = data._origUsername || data.username;
+  var av=data.el.querySelector('.ig-avatar');
+  if(av){
+    av.style.transform='';
+    av.classList.remove('anom-blink-avatar');
+    var nm=data._origUsername||data.username;
+    if(nm) av.textContent=nm[0].toUpperCase();
+  }
+
+  /* 4. Restore likes / caption / comments / timestamp */
+  var lk=data.el.querySelector('.ig-likes-line');
+  if(lk) lk.textContent = data._origLikes || data.likes;
+  var cp=data.el.querySelector('.ig-caption-line');
+  if(cp){
+    cp.classList.remove('cap-anom-rot');
+    var capText=data._origCaption||data.caption||'';
+    var userText=data._origUsername||data.username;
+    cp.innerHTML = capText
+      ? '<span class="cap-user">'+userText+'</span> '+capText
+      : '';
+  }
+  var cm=data.el.querySelector('.ig-comments-line');
+  if(cm) cm.textContent = data._origComments || data.comments;
+  var ts=data.el.querySelector('.ig-time-line');
+  if(ts) ts.textContent = data._origTimestamp || data.timestamp;
+
+  /* 5. Reset any prefilled-heart effect anomaly back to outline */
+  data.el.querySelectorAll('.heart-prefilled').forEach(function(el){
+    el.classList.remove('heart-prefilled');
+    var p=el.querySelector('.heart-path');
+    if(p){ p.setAttribute('fill','none'); p.setAttribute('stroke','#262626'); }
+  });
+
+  /* 6. Strip the text-anomaly post marker (red border on header) */
+  data.el.classList.remove('ig-post--text-anom');
+}
+
+/* ---- Handle heart / report ---- */
+function handleAction(data,action,pressedBtn,otherBtn){
+  if(data.acted) return;
+  data.acted=true;
+  updateScrollGate();
+  /* Generic select chirp on every report tap — fires immediately so the
+     player gets instant tactile feedback. The follow-up sounds (correct
+     beep / wrong buzz / heart correct) layer on top. */
+  if(action==='report') playSnd('select');
+  var correct=(action==='heart'&&!data.anomalous)||(action==='report'&&data.anomalous);
+  data.correct=correct;
+  data.el.classList.add('acted');
+  /* On a CORRECT REPORT, the system "fixes" the post — but with a 2-second
+     tension beep first. The beep plays immediately, then at 2s it gets cut
+     off, the restore-to-normal sound fires, and the post visually reverts. */
+  if(correct && action==='report'){
+    playSnd('beep');
+    var rid=setTimeout(function(){
+      stopSnd('beep');
+      playSnd('restore');
+      restoreToNormal(data);
+    }, 2000);
+    igActiveTimeouts.push(rid);
+  }
+  if(correct){
+    pressedBtn.style.opacity='1';
+    otherBtn.classList.add('dimmed');
+    if(action==='heart'){
+      var p=pressedBtn.querySelector('.heart-path');
+      if(p){p.setAttribute('fill','#ed4956');p.setAttribute('stroke','#ed4956');}
+    } else {
+      pressedBtn.querySelectorAll('path,line').forEach(function(el){el.setAttribute('stroke','#8b0000');});
+    }
+    igComboCount++;
+    if(igComboCount>=10) igCombo=5;
+    else if(igComboCount>=5) igCombo=3;
+    else if(igComboCount>=3) igCombo=2;
+    else igCombo=1;
+    var basePts=(action==='heart'?10:25);
+    var pts=basePts*igCombo;
+    igScore+=pts;
+    var comboStr=igCombo>1?' ×'+igCombo:'';
+    var popLabel=action==='report'?'REBUKE +'+pts+comboStr:'+'+pts+' Faith'+comboStr;
+    showPop(popLabel,pressedBtn,action==='report'?'#8b0000':'#262626',action==='report'?'rebuke':null);
+    /* Correct HEART feels positive — bouncy pop + correct chirp.
+       Correct REPORT keeps the glitch (it's a tense, gritty action). */
+    if(action==='heart'){ triggerHeartPop(pressedBtn); playSnd('correct'); }
+    else                 triggerGlitch();
+  } else {
+    pressedBtn.style.opacity='0.2';
+    igComboCount=0; igCombo=1;
+    addCorruption(22);
+    showPop(action==='report'?'- NORMAL POST':'- ANOMALY MISSED',pressedBtn,'#8b0000','rebuke');
+    triggerGlitch();
+    playSnd('wrong');
+  }
+  updateHUD();
+  if(igScore>igHighScore){igHighScore=igScore;localStorage.setItem('wg_ig_hs',String(igHighScore));}
+}
+
+function triggerGlitch(){
+  igFeedScroll.classList.remove('ig-glitch-burst');
+  void igFeedScroll.offsetWidth;
+  igFeedScroll.classList.add('ig-glitch-burst');
+  setTimeout(function(){igFeedScroll.classList.remove('ig-glitch-burst');},380);
+}
+/* Positive feedback for correct hearts — bouncy heart-scale pop with a brief
+   pulse ring. No screen-shake, no hue distortion — reads as "yes, good." */
+function triggerHeartPop(btn){
+  if(!btn) return;
+  btn.classList.remove('heart-pop'); void btn.offsetWidth;
+  btn.classList.add('heart-pop');
+  setTimeout(function(){btn.classList.remove('heart-pop');},520);
+}
+
+/* ---- Corruption ---- */
+function addCorruption(n){
+  igCorruption=Math.min(100,igCorruption+n);
+  igCorrBar.style.width=igCorruption+'%';
+  igCorrBar.classList.toggle('pulsing',igCorruption>=60);
+  if(igCorruption>=100) setTimeout(showGameOver,600);
+}
+
+/* ---- Score pop ---- */
+/* ---- Score pop: big & centered on the image ---- */
+function showPop(text,ref,color,extraCls){
+  /* Position over the center of the phone screen */
+  var screen=document.getElementById('screenEl');
+  var sr=screen.getBoundingClientRect();
+  var p=document.createElement('div');
+  p.className='ig-pop'+(extraCls?' '+extraCls:'');
+  p.textContent=text; p.style.color=color;
+  p.style.left=(sr.left+sr.width/2)+'px';
+  p.style.top=(sr.top+sr.height*0.42)+'px';
+  document.body.appendChild(p);
+  setTimeout(function(){p.remove();},1100);
+}
+
+/* ---- HUD ---- */
+function updateHUD(){
+  igHudScore.textContent=igScore;
+  igHudCombo.textContent=igCombo>1?'\xd7'+igCombo+' COMBO':'';
+}
+
+/* ---- Scroll gate — blocks advancing past current post until acted ---- */
+function updateScrollGate(){
+  for(var i=0;i<igPosts.length;i++){
+    if(!igPosts[i].acted && igPosts[i].el){
+      var postBottom=igPosts[i].el.offsetTop+igPosts[i].el.offsetHeight;
+      igScrollGate=Math.max(0, postBottom-igFeedScroll.clientHeight);
+      return;
+    }
+  }
+  igScrollGate=Infinity;
+}
+
+/* ---- Feed ---- */
+function appendPosts(n){
+  for(var i=0;i<n;i++){
+    var d=generatePostData(); igPosts.push(d);
+    var pEl=buildPost(d);
+    igFeedScroll.appendChild(pEl);
+    (function(pd,pel){
+      var lk2=pel.querySelector('.ig-likes-line');
+      var cp2=pel.querySelector('.ig-caption-line');
+      var ts2=pel.querySelector('.ig-time-line');
+      applyLiveTextAnomaly(pd,lk2,cp2,ts2);
+    })(d,pEl);
+  }
+  setTimeout(updateScrollGate,0);
+}
+
+/* ---- Game over ---- */
+var GO_LINES=['IT SAW YOU','YOU WERE SEEN','THE FEED ENDS HERE','STOP SCROLLING','IT KNOWS YOUR FACE','NO MORE LOOKING'];
+function showGameOver(){
+  igGameActive=false;
+  stopSnd('beep'); stopTutLoop();
+  playSnd('gameover');
+  igGoLine1.textContent=rnd(GO_LINES);
+  igGoScores.innerHTML='SCORE &nbsp; '+igScore+'<br>BEST &nbsp;&nbsp; '+igHighScore+'<br>LOOP &nbsp;&nbsp; '+igLoop;
+  igGameover.classList.remove('hidden');
+  /* Show the leaderboard form. Will silently no-op if Firestore failed
+     to initialize (e.g. SDK blocked, offline). */
+  renderLbForm();
+}
+
+/* ---- Lifecycle ---- */
+function resetGame(){
+  stopAllSounds();
+  igScore=0; igCorruption=0; igCombo=1; igComboCount=0; igLoop=0; igPhotoPtr=0; igPosts=[]; igLastPhoto=null; igRecentPhotos=[]; _buildPhotoOrder(); _capNQ=[]; _capFQ=[]; _recentCaps=[];
+  igActiveTimeouts.forEach(function(id){clearTimeout(id);}); igActiveTimeouts=[];
+  /* Remove any stale scroll listener so startFeed doesn't bind a duplicate
+     when restarting after a game over. */
+  igFeedScroll.removeEventListener('scroll',onFeedScroll);
+  igFeedScroll.innerHTML=''; igFeedScroll.scrollTop=0;
+  igCorrBar.style.width='0%'; igCorrBar.classList.remove('pulsing');
+  igGameover.classList.add('hidden'); updateHUD();
+  igGameActive=false;
+  igDevMode=false;
+  igGameStartTs=0;
+  igScrollGate=Infinity;
+  var lbBox=document.getElementById('igGoLb'); if(lbBox) lbBox.innerHTML='';
+}
+
+function onFeedScroll(){
+  /* Enforce gate — snap back if user tries to scroll past current unacted post */
+  if(igFeedScroll.scrollTop>igScrollGate) igFeedScroll.scrollTop=igScrollGate;
+  if(igDevMode) return;
+  var d=igFeedScroll;
+  if(d.scrollTop+d.clientHeight>=d.scrollHeight-900) appendPosts(4);
+}
+
+function cleanupIG(){
+  igFeedScroll.removeEventListener('scroll',onFeedScroll);
+  igActiveTimeouts.forEach(function(id){clearTimeout(id);});
+}
+window._igCleanup=cleanupIG;
+
+function startFeed(){
+  appendPosts(6);
+  igFeedScroll.addEventListener('scroll',onFeedScroll);
+  igGameActive=true;
+  igGameStartTs=Date.now();
+}
+
+/* ---- Leaderboard ---------------------------------------------------------
+   Renders the IG-handle form on game over, posts the score to Firestore on
+   submit, then displays top 10 with the player's row highlighted.
+   Anti-cheat: rejects submissions for sessions under 30 seconds. */
+function _validIgHandle(s){
+  return /^[a-zA-Z0-9._]{2,30}$/.test(s);
+}
+function renderLbForm(errMsg){
+  var box=document.getElementById('igGoLb'); if(!box) return;
+  if(!_igDb){ box.innerHTML=''; return; }
+  box.innerHTML=
+    '<div class="ig-go-lb-prompt">enter your instagram <b>@</b> for the leaderboard</div>'+
+    '<div class="ig-go-lb-form">'+
+      '<span class="ig-go-lb-at">@</span>'+
+      '<input type="text" class="ig-go-lb-input" id="igGoLbInput" maxlength="30" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="yourhandle">'+
+      '<button class="ig-go-lb-submit" id="igGoLbSubmit">submit</button>'+
+    '</div>'+
+    '<div class="ig-go-lb-hint">high scores win prizes</div>'+
+    (errMsg?'<div class="ig-go-lb-err">'+errMsg+'</div>':'');
+  var input=document.getElementById('igGoLbInput');
+  var btn=document.getElementById('igGoLbSubmit');
+  function trySubmit(){
+    var raw=(input.value||'').trim().toLowerCase().replace(/^@+/,'');
+    if(!_validIgHandle(raw)){
+      renderLbForm('handle must be 2–30 chars (letters, numbers, dots, underscores)');
+      return;
+    }
+    /* Anti-cheat: reject suspiciously short sessions */
+    var elapsed=(Date.now()-igGameStartTs)/1000;
+    if(elapsed<30){
+      renderLbForm('game too short to qualify');
+      return;
+    }
+    submitScore(raw);
+  }
+  btn.addEventListener('click',trySubmit);
+  input.addEventListener('keydown',function(e){
+    if(e.key==='Enter') trySubmit();
+  });
+}
+function submitScore(handle){
+  var box=document.getElementById('igGoLb');
+  if(box) box.innerHTML='<div class="ig-go-lb-loading">submitting&hellip;</div>';
+  _igDb.collection('scores').doc(handle).set({
+    ig: handle,
+    score: igScore,
+    loop: igLoop,
+    ts: firebase.firestore.FieldValue.serverTimestamp()
+  }).then(function(){
+    renderLbBoard(handle, handle);
+  }).catch(function(err){
+    /* eslint-disable-next-line no-console */ console.warn('lb submit failed', err);
+    renderLbForm('couldn’t submit — try again');
+  });
+}
+function renderLbBoard(myDocId, myHandle){
+  var box=document.getElementById('igGoLb'); if(!box) return;
+  box.innerHTML='<div class="ig-go-lb-loading">loading leaderboard&hellip;</div>';
+  _igDb.collection('scores').orderBy('score','desc').limit(10).get()
+    .then(function(snap){
+      var rows='';
+      var rank=0, foundMine=false;
+      snap.forEach(function(doc){
+        rank++;
+        var d=doc.data();
+        var mine=(doc.id===myDocId);
+        if(mine) foundMine=true;
+        rows+='<div class="ig-go-lb-row'+(mine?' mine':'')+'">'+
+          '<span class="rank">#'+rank+'</span>'+
+          '<span class="ig">@'+d.ig+'</span>'+
+          '<span class="score">'+(d.score||0).toLocaleString()+'</span>'+
+        '</div>';
+      });
+      /* If player's score didn't make top 10, append their row at the bottom. */
+      if(!foundMine){
+        rows+='<div class="ig-go-lb-row mine">'+
+          '<span class="rank">&mdash;</span>'+
+          '<span class="ig">@'+myHandle+'</span>'+
+          '<span class="score">'+igScore.toLocaleString()+'</span>'+
+        '</div>';
+      }
+      box.innerHTML='<div class="ig-go-lb-title">leaderboard &middot; top 10</div>'+
+                    '<div class="ig-go-lb-list">'+rows+'</div>';
+    })
+    .catch(function(err){
+      /* eslint-disable-next-line no-console */ console.warn('lb read failed', err);
+      box.innerHTML='<div class="ig-go-lb-err">submitted, but couldn’t load leaderboard right now.</div>';
+    });
+}
+
+/* ---- Dev test mode -------------------------------------------------------
+   Builds a fixed sequential feed showing every photo that has an anomaly
+   edit on disk (each file once, in the order they're listed in
+   ANOMALY_FILE_MAP), followed by the random anomaly files. Each post is
+   forced anomalous with atype='image' so the actual transition behavior
+   (fade / pulse / blink / instant swap, etc.) runs. No corruption meter
+   gameplay — just scroll, watch, verify. */
+function startDevTest(){
+  igDevMode=true;
+  var photo, files, fi;
+  /* Loop over the map in insertion order */
+  var keys=[]; for(var k in ANOMALY_FILE_MAP) keys.push(k);
+  for(var ki=0;ki<keys.length;ki++){
+    photo=keys[ki]; files=ANOMALY_FILE_MAP[photo];
+    for(fi=0;fi<files.length;fi++){
+      var d={
+        photo:photo, anomalous:true, anomalyType:'image', textVariant:null,
+        loop:fi, intensity:0.55,
+        username:PHOTO_USERNAMES[photo]||'dev_test',
+        likes:'— dev test —',
+        caption:'['+photo+'] &rarr; '+files[fi].replace('anomalies/',''),
+        comments:'View 0 comments',
+        timestamp:'DEV',
+        acted:false, correct:null, el:null, imgWrap:null, timeoutIds:[]
+      };
+      igPosts.push(d);
+      igFeedScroll.appendChild(buildPost(d));
+    }
+  }
+  /* Then each random anomaly file as its own post */
+  for(var ri=0;ri<RANDOM_ANOMALY_FILES.length;ri++){
+    var rfile=RANDOM_ANOMALY_FILES[ri];
+    var rd={
+      photo:rfile, anomalous:true, anomalyType:'random', textVariant:null,
+      loop:0, intensity:0.55,
+      username:'dev_test',
+      likes:'— dev test —',
+      caption:'[random] '+rfile.replace('anomalies/',''),
+      comments:'View 0 comments',
+      timestamp:'DEV',
+      acted:false, correct:null, el:null, imgWrap:null, timeoutIds:[]
+    };
+    igPosts.push(rd);
+    igFeedScroll.appendChild(buildPost(rd));
+  }
+  igGameActive=true;
+}
+
+function openInstagram(){
+  /* If there's a game in progress OR a game-over screen waiting, just zoom
+     back into the view — preserve score, loop, feed, timers, scroll position. */
+  var gameoverVisible=!igGameover.classList.contains('hidden');
+  if(igGameActive||gameoverVisible){
+    window._openWithZoom(window._igView,'dashInstagram');
+    return;
+  }
+  resetGame();
+  window._openWithZoom(window._igView,'dashInstagram',function(){
+    if(!igTutorialSeen){
+      igTutorial.classList.remove('hidden');
+      playTutLoop();
+    } else {
+      igTutorial.classList.add('hidden'); startFeed();
+    }
+  });
+}
+
+/* ---- Event listeners ---- */
+document.getElementById('dashInstagram').addEventListener('click',openInstagram);
+
+igTutorial.addEventListener('click',function(){
+  igTutorial.classList.add('hidden'); igTutorialSeen=true;
+  stopTutLoop(); playSnd('start');
+  startFeed();
+});
+
+/* Dev-test button — stopPropagation so the tutorial's blanket click handler
+   doesn't also fire startFeed(). */
+var igTutDevBtn=document.getElementById('igTutDevBtn');
+if(igTutDevBtn){
+  igTutDevBtn.addEventListener('click',function(e){
+    e.stopPropagation();
+    igTutorial.classList.add('hidden'); igTutorialSeen=true;
+    startDevTest();
+  });
+}
+
+igGoRestart.addEventListener('click',function(){
+  igGameover.classList.add('hidden'); stopSnd('gameover'); resetGame();
+  if(!igTutorialSeen){
+    igTutorial.classList.remove('hidden'); playTutLoop();
+  } else {
+    playSnd('start'); startFeed();
+  }
+});
+
+document.getElementById('igHomeBtn').addEventListener('click',function(){
+  /* Don't cleanup — leave the feed, score, timers, and scroll position intact
+     so the user can come back via the Wickedgram icon and resume their game.
+     BUT stop all sounds (looping tutorial / lingering beep) so they don't
+     bleed out into the dashboard. */
+  stopAllSounds();
+  window._goToDashboard();
+});
+
+})();
+
+/* =======================================================================
+   GLIMMERBAY (fake .onion marketplace, lives inside Safari tab)
+   ─ All product "photos" are inline SVG placeholders (~300–600 bytes each)
+     so the page loads instantly and has no external dependencies.
+   ─ CSS filters + grain overlay make them read as compressed seedy JPEGs.
+   ─ Search bar filters across title/desc/vendor.
+   ─ Category chips filter by category tag.
+   ======================================================================= */
+(function(){
+'use strict';
+
+/* tiny stylised product "photos" — pretend they're shitty webcam pics */
+var SVG = {
+  powder: '<svg viewBox="0 0 64 64"><rect width="64" height="64" fill="#1a1410"/><ellipse cx="32" cy="44" rx="26" ry="6" fill="#080604"/><ellipse cx="32" cy="40" rx="22" ry="9" fill="#e8e4d8"/><ellipse cx="30" cy="35" rx="16" ry="6" fill="#f5f2e8"/><ellipse cx="27" cy="30" rx="8" ry="3" fill="#fafaf2"/><circle cx="20" cy="44" r="2" fill="#f0ece0"/><circle cx="46" cy="42" r="1.5" fill="#f0ece0"/></svg>',
+  bluepill: '<svg viewBox="0 0 64 64"><rect width="64" height="64" fill="#1a1410"/><circle cx="22" cy="34" r="11" fill="#3a5fc7"/><circle cx="44" cy="38" r="11" fill="#3a5fc7"/><circle cx="33" cy="22" r="11" fill="#3a5fc7"/><circle cx="20" cy="30" r="2.5" fill="#7fa0e8" opacity="0.6"/><circle cx="42" cy="34" r="2" fill="#7fa0e8" opacity="0.6"/><circle cx="31" cy="18" r="2" fill="#7fa0e8" opacity="0.6"/><path d="M28 26 L36 26" stroke="#1a3079" stroke-width="0.8"/></svg>',
+  cannabis: '<svg viewBox="0 0 64 64"><rect width="64" height="64" fill="#0d0a06"/><ellipse cx="32" cy="36" rx="16" ry="22" fill="#2d4a1a"/><ellipse cx="20" cy="34" rx="7" ry="14" fill="#3d5a2a" transform="rotate(-20 20 34)"/><ellipse cx="44" cy="34" rx="7" ry="14" fill="#3d5a2a" transform="rotate(20 44 34)"/><ellipse cx="32" cy="48" rx="5" ry="11" fill="#3d5a2a"/><circle cx="32" cy="30" r="3" fill="#6a8a3a" opacity="0.7"/><circle cx="38" cy="36" r="2.5" fill="#6a8a3a" opacity="0.7"/><circle cx="26" cy="38" r="2.5" fill="#6a8a3a" opacity="0.7"/><circle cx="32" cy="42" r="2" fill="#a0b870" opacity="0.5"/></svg>',
+  blotter: '<svg viewBox="0 0 64 64"><rect width="64" height="64" fill="#0d0a06"/><rect x="6" y="6" width="52" height="52" fill="#e8e0c8" stroke="#a09780" stroke-width="0.6"/><g stroke="#8a8070" stroke-width="0.4" fill="none"><line x1="19" y1="6" x2="19" y2="58"/><line x1="32" y1="6" x2="32" y2="58"/><line x1="45" y1="6" x2="45" y2="58"/><line x1="6" y1="19" x2="58" y2="19"/><line x1="6" y1="32" x2="58" y2="32"/><line x1="6" y1="45" x2="58" y2="45"/></g><g fill="#9a3838"><circle cx="12.5" cy="12.5" r="2.2"/><circle cx="25.5" cy="25.5" r="2.2"/><circle cx="38.5" cy="38.5" r="2.2"/><circle cx="51.5" cy="51.5" r="2.2"/><circle cx="12.5" cy="51.5" r="2.2"/><circle cx="51.5" cy="12.5" r="2.2"/><circle cx="25.5" cy="12.5" r="2.2"/><circle cx="38.5" cy="25.5" r="2.2"/></g></svg>',
+  shrooms: '<svg viewBox="0 0 64 64"><rect width="64" height="64" fill="#0d0a06"/><g><ellipse cx="22" cy="22" rx="14" ry="8" fill="#7a5028"/><ellipse cx="22" cy="20" rx="12" ry="6" fill="#9a6838" opacity="0.6"/><rect x="20" y="22" width="4" height="24" fill="#d8c8a0"/><ellipse cx="22" cy="46" rx="5" ry="2" fill="#080604"/></g><g><ellipse cx="44" cy="34" rx="11" ry="6" fill="#7a5028"/><ellipse cx="44" cy="33" rx="9" ry="4" fill="#9a6838" opacity="0.6"/><rect x="42" y="34" width="4" height="16" fill="#d8c8a0"/><ellipse cx="44" cy="50" rx="4" ry="1.5" fill="#080604"/></g><circle cx="18" cy="20" r="1" fill="#3a2818"/><circle cx="26" cy="22" r="1" fill="#3a2818"/></svg>',
+  tar: '<svg viewBox="0 0 64 64"><rect width="64" height="64" fill="#0d0a06"/><ellipse cx="32" cy="46" rx="24" ry="5" fill="#000"/><ellipse cx="32" cy="36" rx="20" ry="11" fill="#1a0e08"/><ellipse cx="32" cy="34" rx="18" ry="9" fill="#0a0604"/><ellipse cx="27" cy="29" rx="6" ry="3" fill="#2a1810" opacity="0.7"/><ellipse cx="40" cy="32" rx="4" ry="2" fill="#2a1810" opacity="0.5"/></svg>',
+  xanax: '<svg viewBox="0 0 64 64"><rect width="64" height="64" fill="#0d0a06"/><g fill="#f0ede0" stroke="#a09080" stroke-width="0.4"><rect x="5" y="18" width="54" height="9" rx="2"/><rect x="5" y="30" width="54" height="9" rx="2"/><rect x="5" y="42" width="54" height="9" rx="2"/></g><g stroke="#7a7060" stroke-width="0.4" fill="none"><line x1="18.5" y1="18" x2="18.5" y2="27"/><line x1="32" y1="18" x2="32" y2="27"/><line x1="45.5" y1="18" x2="45.5" y2="27"/><line x1="18.5" y1="30" x2="18.5" y2="39"/><line x1="32" y1="30" x2="32" y2="39"/><line x1="45.5" y1="30" x2="45.5" y2="39"/><line x1="18.5" y1="42" x2="18.5" y2="51"/><line x1="32" y1="42" x2="32" y2="51"/><line x1="45.5" y1="42" x2="45.5" y2="51"/></g></svg>',
+  ketamine: '<svg viewBox="0 0 64 64"><rect width="64" height="64" fill="#0d0a06"/><polygon points="14,46 20,22 38,18 50,30 46,48 24,52" fill="#e8e4d0"/><polygon points="38,18 50,30 44,22" fill="#c0b8a0"/><polygon points="20,22 14,46 22,30" fill="#a89e88"/><polygon points="38,18 46,48 50,30" fill="#c8c0a8"/><polygon points="24,52 46,48 30,46" fill="#b8b098"/></svg>',
+  dmt: '<svg viewBox="0 0 64 64"><rect width="64" height="64" fill="#0d0a06"/><polygon points="18,42 26,16 36,16 46,42 36,48 26,48" fill="#e8a838"/><polygon points="36,16 46,42 50,28" fill="#a06818"/><polygon points="26,16 18,42 14,28" fill="#b87828"/><polygon points="14,52 22,40 28,52" fill="#d49830"/><polygon points="40,52 48,42 54,52" fill="#c08820"/></svg>',
+  adderall: '<svg viewBox="0 0 64 64"><rect width="64" height="64" fill="#0d0a06"/><g><rect x="6" y="16" width="22" height="9" rx="4.5" fill="#d44030"/><rect x="6" y="16" width="11" height="9" fill="#9a2820"/><rect x="20" y="32" width="24" height="9" rx="4.5" fill="#d44030"/><rect x="20" y="32" width="12" height="9" fill="#9a2820"/><rect x="36" y="48" width="22" height="9" rx="4.5" fill="#d44030"/><rect x="36" y="48" width="11" height="9" fill="#9a2820"/></g></svg>',
+  crystal: '<svg viewBox="0 0 64 64"><rect width="64" height="64" fill="#0d0a06"/><polygon points="14,48 22,18 32,14 44,20 50,44 38,52 22,52" fill="#f4f0d8"/><polygon points="32,14 44,20 38,28" fill="#c0baa0"/><polygon points="44,20 50,44 38,30" fill="#a8a088"/><polygon points="22,18 14,48 24,34" fill="#d4cca8"/><circle cx="30" cy="30" r="3" fill="#fff" opacity="0.5"/></svg>',
+  brick: '<svg viewBox="0 0 64 64"><rect width="64" height="64" fill="#0d0a06"/><rect x="8" y="18" width="48" height="32" fill="#3a2818" stroke="#1a0e08" stroke-width="1"/><rect x="10" y="20" width="44" height="6" fill="#5a4028" opacity="0.6"/><line x1="8" y1="34" x2="56" y2="34" stroke="#1a0e08" stroke-width="0.8"/><line x1="32" y1="18" x2="32" y2="50" stroke="#1a0e08" stroke-width="0.6"/><text x="32" y="44" text-anchor="middle" font-size="6" fill="#1a0e08" font-family="monospace" font-weight="bold">PURE</text></svg>'
+};
+
+/* Each product has both an inline SVG (fallback) and a real-photo URL.
+   If the URL loads, it covers the SVG. If it 404s, the SVG shows through.
+   URLs are Wikimedia Commons hotlinks (free, no referer issues).
+   Swap any to DrugsData / Erowid URLs by editing the `img` field. */
+var products = [
+  {svg:SVG.powder,    img:'https://cdn.shopify.com/s/files/1/0734/4671/9780/files/coke.jpg?v=1778704599', title:'+PURE UNCUT BOLIVIAN COCA+ 1g', desc:"PANAMA'S FINEST &middot; Scott &amp; purity tested &middot; fishscale", price:'&#8383;0.4012', rating:4.6, reviews:142, vendor:'JSN', cat:'stimulants'},
+  {svg:SVG.cannabis,  img:'https://cdn.shopify.com/s/files/1/0734/4671/9780/files/cannabis.jpg?v=1778704599', title:'+SFV OG KUSH+ 1oz INDOOR', desc:'TOP SHELF MEDICAL GRADE &middot; cali indoor &middot; vac sealed', price:'&#8383;1.1024', rating:4.4, reviews:45, vendor:'TWEETB', cat:'cannabis'},
+  {svg:SVG.shrooms,   img:'https://cdn.shopify.com/s/files/1/0734/4671/9780/files/shrooms.jpg?v=1778704600', title:'1 OZ P. Cubensis Shroom &hearts; Capsules &hearts;', desc:'FungiFun grow @ GlimmerBay &middot; A+ potency &middot; dried', price:'&#8383;0.3009', rating:4.8, reviews:207, vendor:'FungiFun', cat:'psychedelics'},
+  {svg:SVG.tar,       img:'https://cdn.shopify.com/s/files/1/0734/4671/9780/files/heroin.jpg?v=1778704599', title:'+AFGHAN BLACK TAR H+ 1g UNCUT', desc:'PURE UNCUT &middot; black sticky &middot; sinaloa import', price:'&#8383;0.4521', rating:3.9, reviews:78, vendor:'silkroad_legacy', cat:'opiates'},
+  {svg:SVG.xanax,     img:'https://cdn.shopify.com/s/files/1/0734/4671/9780/files/xanax.jpg?v=1778704600', title:'30x PFIZER XANAX 2mg BARS &hearts;', desc:'PHARMA SEALED strips &middot; no press &middot; press-confirmed legit', price:'&#8383;0.5512', rating:4.5, reviews:521, vendor:'phamarcy24', cat:'pharmaceuticals'},
+  {svg:SVG.ketamine,  img:'https://cdn.shopify.com/s/files/1/0734/4671/9780/files/ketamine.jpg?v=1778704599', title:'+S-KETAMINE+ 1g UK IMPORT', desc:'TOP SHELF &middot; crystalline &middot; bulk avail &middot; ask for brick price', price:'&#8383;0.4775', rating:4.6, reviews:156, vendor:'k.hole.express', cat:'dissociatives'},
+  {svg:SVG.dmt,       img:'https://cdn.shopify.com/s/files/1/0734/4671/9780/files/dmt.jpg?v=1778704599', title:'&hearts; PURE DMT FUMARATE &hearts; 200mg 99%', desc:'amber crystal &middot; freebase avail &middot; vape ready &middot; 1ml &amp; up', price:'&#8383;0.7032', rating:4.9, reviews:91, vendor:'SPICE_RUNNER', cat:'psychedelics'},
+  {svg:SVG.tar,       img:'https://cdn.shopify.com/s/files/1/0734/4671/9780/files/ayahausca.jpg?v=1778704599', title:'+SHIPIBO AYAHUASCA BREW+ 500ml', desc:'caapi + chacruna &middot; peruvian shaman prep &middot; ceremonial', price:'&#8383;1.1037', rating:4.7, reviews:48, vendor:'shipibo_curandero', cat:'psychedelics'},
+  {svg:SVG.dmt,       img:'https://cdn.shopify.com/s/files/1/0734/4671/9780/files/psychoactive_toad_venom.jpg?v=1778704599', title:'&hearts; 5-MeO-DMT &hearts; Bufo Toad Venom 50mg', desc:'sonoran desert &middot; freebase crystal &middot; vape ready &middot; FAST', price:'&#8383;0.8025', rating:4.9, reviews:67, vendor:'SPICE_RUNNER', cat:'psychedelics'},
+  {svg:SVG.ketamine,  img:'https://cdn.shopify.com/s/files/1/0734/4671/9780/files/chloroform.jpg?v=1778704599', title:'+CHLOROFORM+ 100ml REAGENT GRADE', desc:'sealed amber bottle &middot; lab pure &middot; vintage glass &middot; DESCRETE', price:'&#8383;0.3768', rating:4.1, reviews:32, vendor:'lab.surplus.co', cat:'dissociatives'},
+  {svg:SVG.adderall,  img:'https://cdn.shopify.com/s/files/1/0734/4671/9780/files/adderall.jpg?v=1778704599', title:'30x TEVA ADDERALL IR 30mg &hearts;', desc:'PHARMA SEALED &middot; orange instant release &middot; legit script', price:'&#8383;0.4761', rating:4.4, reviews:412, vendor:'study.hard', cat:'pharmaceuticals'},
+  {svg:SVG.crystal,   img:'https://cdn.shopify.com/s/files/1/0734/4671/9780/files/meth.png?v=1778704599', title:'&hearts; METH ICE &hearts; 1g SHARDS', desc:'AU IMPORT &middot; glass shards &middot; not for human consumption', price:'&#8383;0.9019', rating:4.2, reviews:88, vendor:'BREAKING_BAD_221', cat:'stimulants'},
+  /* note: meth.png left as-is on disk (32 KB) — already small enough */
+  {svg:SVG.xanax,     img:'https://cdn.shopify.com/s/files/1/0734/4671/9780/files/perc_10s.jpg?v=1778704599', title:'&hearts; 20x PERCOCET 10/325 &hearts; Yellow Ovals', desc:'pharma sealed &middot; LEGIT &middot; no press &middot; FAST ship', price:'&#8383;0.8024', rating:4.6, reviews:284, vendor:'phamarcy24', cat:'opiates'},
+  {svg:SVG.bluepill,  img:'https://cdn.shopify.com/s/files/1/0734/4671/9780/files/perc_30s.jpg?v=1778704599', title:'&hearts; 20x M30 PERC BLUES &hearts; OXY 30mg', desc:'MALLINCKRODT pharma &middot; pure oxy &middot; legit &middot; FAST', price:'&#8383;1.4042', rating:4.8, reviews:417, vendor:'phamarcy24', cat:'opiates'},
+  {svg:SVG.tar,       img:'https://cdn.shopify.com/s/files/1/0734/4671/9780/files/lean.jpg?v=1778704599', title:'+TRIS LEAN+ 16oz BOTTLE &hearts;', desc:'promethazine 6.25/codeine 10/5ml &middot; sealed &middot; the real one', price:'&#8383;2.1037', rating:4.9, reviews:128, vendor:'THREE_6_MAFIA', cat:'opiates'}
+];
+
+function stars(r){
+  var full=Math.floor(r), half=(r-full)>=0.5?1:0, empty=5-full-half;
+  var s='';
+  while(full-->0) s+='★';
+  if(half) s+='½';
+  while(empty-->0) s+='☆';
+  return s;
+}
+
+function render(){
+  var box=document.getElementById('gbListings');
+  if(!box) return;
+  box.innerHTML=products.map(function(p,i){
+    /* Real-photo img sits on top of the SVG fallback. If it loads, we add
+       .gb-loaded (fades it in). If it 404s, onerror hides it and the SVG
+       placeholder underneath shows through. */
+    var photoHtml=p.img
+      ? '<img class="gb-real-photo" src="'+p.img+'" alt="" '
+        +'onload="this.classList.add(\'gb-loaded\')" '
+        +'onerror="this.style.display=\'none\'" />'
+      : '';
+    return '<div class="gb-product" data-i="'+i+'" data-cat="'+p.cat+'">'
+      +'<div class="gb-product-img">'+p.svg+photoHtml+'</div>'
+      +'<div class="gb-product-info">'
+        +'<div class="gb-product-title">'+p.title+'</div>'
+        +'<div class="gb-product-desc">'+p.desc+'</div>'
+        +'<div class="gb-product-rating">'+stars(p.rating)+' <span>('+p.reviews+')</span></div>'
+        +'<div class="gb-product-vendor">vendor: '+p.vendor+'</div>'
+      +'</div>'
+      +'<div class="gb-product-price">'+p.price+'</div>'
+    +'</div>';
+  }).join('') || '<div class="gb-empty">no listings.</div>';
+}
+
+function applyFilters(){
+  var q=(document.getElementById('gbSearch').value||'').toLowerCase().trim();
+  var activeCat=document.querySelector('.gb-cat.active');
+  var cat=activeCat?activeCat.getAttribute('data-cat'):'all';
+  var anyVisible=false;
+  document.querySelectorAll('.gb-product').forEach(function(el){
+    var p=products[parseInt(el.getAttribute('data-i'),10)];
+    var matchCat=(cat==='all'||p.cat===cat);
+    var hay=(p.title+' '+p.desc+' '+p.vendor+' '+p.cat).toLowerCase();
+    var matchQ=(!q||hay.indexOf(q)>=0);
+    var show=matchCat&&matchQ;
+    el.style.display=show?'':'none';
+    if(show) anyVisible=true;
+  });
+  /* show/hide empty state */
+  var listings=document.getElementById('gbListings');
+  var empty=listings.querySelector('.gb-empty-msg');
+  if(!anyVisible && !empty){
+    var d=document.createElement('div');
+    d.className='gb-empty gb-empty-msg';
+    d.textContent='no listings match.';
+    listings.appendChild(d);
+  } else if(anyVisible && empty){
+    empty.remove();
+  }
+}
+
+/* ── Product detail modal ──────────────────────────────────────────────
+   One reused overlay populated on click. Uses only data already loaded
+   for the product (image, title, price, etc.) plus a tiny set of
+   procedurally-generated fake reviews — no extra network requests, no
+   new assets loaded. Adds maybe 1.5 KB on top of the listings page. */
+var MOCK_REVIEWS=[
+  ['stealth was insane, double vacuum sealed','GhostBuyer_77'],
+  ['arrived in 4 days, exactly as described','phantom.04'],
+  ['quality on point, will reorder','solo_lurker'],
+  ['vendor responsive on PGP, smooth tx','nullbyte'],
+  ['10/10 stealth, looked like a postcard','reviewer.x'],
+  ['lab tested, marquis came up clean','testkit.daily'],
+  ['handed off no problem, no signature','silent.partner'],
+  ['second order, same quality as first','repeat_customer'],
+  ['ts took my grandma clean out','xan.fiend.420'],
+  ['This batch tested positive for fentanyl. 5 stars.','dr.feelgood'],
+  ['gone in 30 seconds bro','speed.rec0very'],
+  ['cleanest gear i’ve seen this year','blueline_77'],
+  ['vendor went dark for 2 weeks but came thru','patient0'],
+  ['unmarked envelope, no return address, perfect','spook.zero']
+];
+var MOCK_SHIP_FROM=['NL','DE','UK','US-CA','US-NY','CZ','BE','ES','CO'];
+var MOCK_SHIP_OPTS=['stealth vacuum','double mylar','decoy mail','express tracked'];
+
+function gbStars(r){ return stars(r); }
+function gbHash(str){ var h=0; for(var i=0;i<str.length;i++){ h=(h*31+str.charCodeAt(i))|0; } return Math.abs(h); }
+
+/* Saved listings-scroll position so we can restore it when the modal closes. */
+var _gbSavedScroll=0;
+
+function openProductModal(p){
+  var modal=document.getElementById('gbModal');
+  var imgEl=document.getElementById('gbModalImg');
+  var bodyEl=document.getElementById('gbModalBody');
+  var glimmerbay=document.querySelector('.glimmerbay');
+  if(!modal||!imgEl||!bodyEl||!glimmerbay) return;
+  /* SCROLL LOCK — remember the listings scroll position, snap the page to
+     top (so the modal's top:0 sits flush with the visible viewport), and
+     freeze further scrolling on the underlying feed. Without this, the
+     modal opens at the top of the scroll content while the user is mid-
+     feed, leaving listings visible above the modal. */
+  _gbSavedScroll=glimmerbay.scrollTop;
+  glimmerbay.scrollTop=0;
+  glimmerbay.style.overflow='hidden';
+  /* Image — use background-image (no new <img>, browser cache hit). */
+  imgEl.style.backgroundImage = p.img ? 'url("'+p.img+'")' : 'none';
+  /* Stable mock metadata seeded off the product title so it doesn't shuffle. */
+  var seed=gbHash(p.title);
+  var shipFrom=MOCK_SHIP_FROM[seed%MOCK_SHIP_FROM.length];
+  var shipOpt =MOCK_SHIP_OPTS[(seed>>2)%MOCK_SHIP_OPTS.length];
+  var stockN  =50+((seed>>4)%450);
+  var sales   =p.reviews*7+((seed>>6)%200);
+  /* Four pseudo-random reviews from the pool, deduplicated and seeded. */
+  var used={};
+  var picks=[];
+  for(var off=0; picks.length<4 && off<MOCK_REVIEWS.length*2; off++){
+    var idx=(seed+off*7)%MOCK_REVIEWS.length;
+    var rev=MOCK_REVIEWS[idx];
+    if(!used[rev[1]]){ used[rev[1]]=1; picks.push(rev); }
+  }
+  /* Star spreads for each review (also seeded). */
+  var starSpreads=['&#9733;&#9733;&#9733;&#9733;&#9733;','&#9733;&#9733;&#9733;&#9733;&#9734;','&#9733;&#9733;&#9733;&#9733;&#9733;','&#9733;&#9733;&#9733;&#9734;&#9734;'];
+  var reviewsHtml='';
+  for(var pi=0;pi<picks.length;pi++){
+    reviewsHtml+=
+      '<div class="gb-modal-review">'+
+        '<div class="gb-modal-review-head"><span class="gb-modal-review-stars">'+starSpreads[pi]+'</span> &middot; '+picks[pi][1]+'</div>'+
+        '<div class="gb-modal-review-body">"'+picks[pi][0]+'"</div>'+
+      '</div>';
+  }
+  bodyEl.innerHTML=
+    '<div class="gb-modal-title">'+p.title+'</div>'+
+    '<div class="gb-modal-vendor-row">'+
+      '<span class="gb-modal-vendor">vendor: '+p.vendor+'</span>'+
+      '<span class="gb-modal-rating">'+gbStars(p.rating)+' <span>('+p.reviews+')</span></span>'+
+    '</div>'+
+    '<div class="gb-modal-price">'+p.price+'</div>'+
+    '<div class="gb-modal-stock">&#10003; in stock &middot; '+stockN+' available</div>'+
+    '<div class="gb-modal-desc">'+p.desc+'</div>'+
+    '<div class="gb-modal-meta">'+
+      '<b>ships from:</b> '+shipFrom+'<br>'+
+      '<b>packaging:</b> '+shipOpt+'<br>'+
+      '<b>payment:</b> BTC &middot; XMR (10% off)<br>'+
+      '<b>escrow:</b> 7-day finalize<br>'+
+      '<b>vendor sales:</b> '+sales+' total &middot; '+p.reviews+' reviewed'+
+    '</div>'+
+    '<button class="gb-modal-buy">add to cart &middot; '+p.price+'</button>'+
+    '<div class="gb-modal-reviews-title">recent reviews</div>'+
+    reviewsHtml;
+  modal.scrollTop=0;
+  modal.classList.add('open');
+}
+function closeProductModal(){
+  var modal=document.getElementById('gbModal');
+  var glimmerbay=document.querySelector('.glimmerbay');
+  if(modal) modal.classList.remove('open');
+  if(glimmerbay){
+    glimmerbay.style.overflow='';
+    glimmerbay.scrollTop=_gbSavedScroll;
+  }
+}
+
+function init(){
+  render();
+  var input=document.getElementById('gbSearch');
+  if(input) input.addEventListener('input',applyFilters);
+  document.querySelectorAll('.gb-cat').forEach(function(c){
+    c.addEventListener('click',function(){
+      document.querySelectorAll('.gb-cat').forEach(function(o){o.classList.remove('active');});
+      c.classList.add('active');
+      applyFilters();
+    });
+  });
+  /* Product card click → open modal. Single delegated listener on the
+     listings container so DOM size stays light. */
+  var listings=document.getElementById('gbListings');
+  if(listings){
+    listings.addEventListener('click',function(e){
+      var card=e.target.closest('.gb-product');
+      if(!card) return;
+      var idx=parseInt(card.getAttribute('data-i'),10);
+      if(!isNaN(idx) && products[idx]) openProductModal(products[idx]);
+    });
+  }
+  var back=document.getElementById('gbModalBack');
+  if(back) back.addEventListener('click',closeProductModal);
+}
+
+if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',init);
+else init();
+
+})();
+
+</script>
+</body>
+</html>

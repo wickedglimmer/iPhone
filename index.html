@@ -3232,7 +3232,7 @@ function restoreToNormal(data){
   /* 2. Restore original image src + reset inline styles set by anomalies */
   var img=iw?iw.querySelector('img'):null;
   if(img){
-    if(data._origPhoto) img.src=data._origPhoto;
+    if(data._origPhoto) img.src=data._origPhoto.startsWith('http')?data._origPhoto:PHOTO_CDN+data._origPhoto;
     img.style.opacity='';
     img.style.objectFit='';
     img.style.transform='';
@@ -3441,9 +3441,42 @@ function resetGame(){
   var lbBox=document.getElementById('igGoLb'); if(lbBox) lbBox.innerHTML='';
 }
 
+/* ---- Gate touch handlers — rubber-band resistance on mobile ---- */
+var _igTouchStartY=0, _igTouchStartScroll=0, _igTouchGating=false;
+var IG_PEEK_MAX=60; /* px past gate allowed before hard-stop */
+
+function _igTouchStart(e){
+  _igTouchStartY=e.touches[0].clientY;
+  _igTouchStartScroll=igFeedScroll.scrollTop;
+  _igTouchGating=false;
+}
+function _igTouchMove(e){
+  if(!igGameActive) return;
+  var dy=_igTouchStartY - e.touches[0].clientY; /* +ve = scrolling down */
+  var want=_igTouchStartScroll + dy;
+  if(want > igScrollGate){
+    /* Past the gate — apply rubber-band: sqrt dampening, hard cap at IG_PEEK_MAX */
+    var over=want - igScrollGate;
+    var damped=igScrollGate + Math.min(Math.sqrt(over)*4, IG_PEEK_MAX);
+    igFeedScroll.scrollTop=damped;
+    _igTouchGating=true;
+    e.preventDefault(); /* stop browser from doing its own scroll in this zone */
+  } else {
+    _igTouchGating=false;
+  }
+}
+function _igTouchEnd(){
+  if(igFeedScroll.scrollTop > igScrollGate){
+    igFeedScroll.scrollTo({top:igScrollGate, behavior:'smooth'});
+  }
+  _igTouchGating=false;
+}
+
 function onFeedScroll(){
-  /* Enforce gate — snap back if user tries to scroll past current unacted post */
-  if(igFeedScroll.scrollTop>igScrollGate) igFeedScroll.scrollTop=igScrollGate;
+  /* Safety net for non-touch (mouse wheel, keyboard) — hard clamp at gate */
+  if(igFeedScroll.scrollTop > igScrollGate && !_igTouchGating){
+    igFeedScroll.scrollTop=igScrollGate;
+  }
   if(igDevMode) return;
   var d=igFeedScroll;
   if(d.scrollTop+d.clientHeight>=d.scrollHeight-900) appendPosts(4);
@@ -3451,6 +3484,9 @@ function onFeedScroll(){
 
 function cleanupIG(){
   igFeedScroll.removeEventListener('scroll',onFeedScroll);
+  igFeedScroll.removeEventListener('touchstart',_igTouchStart);
+  igFeedScroll.removeEventListener('touchmove',_igTouchMove);
+  igFeedScroll.removeEventListener('touchend',_igTouchEnd);
   igActiveTimeouts.forEach(function(id){clearTimeout(id);});
 }
 window._igCleanup=cleanupIG;
@@ -3458,6 +3494,9 @@ window._igCleanup=cleanupIG;
 function startFeed(){
   appendPosts(6);
   igFeedScroll.addEventListener('scroll',onFeedScroll);
+  igFeedScroll.addEventListener('touchstart',_igTouchStart,{passive:true});
+  igFeedScroll.addEventListener('touchmove',_igTouchMove,{passive:false});
+  igFeedScroll.addEventListener('touchend',_igTouchEnd,{passive:true});
   igGameActive=true;
   igGameStartTs=Date.now();
 }

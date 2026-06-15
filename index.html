@@ -1936,15 +1936,27 @@ function onSwipeEnd() {
   setCarouselPos(vIdx, true);
 }
 
-photoCarousel.addEventListener('touchstart',  e => onSwipeStart(e.touches[0].clientX, e.touches[0].clientY), { passive: true });
-photoCarousel.addEventListener('touchmove',   e => { e.preventDefault(); onSwipeMove(e.touches[0].clientX, e.touches[0].clientY); }, { passive: false });
-photoCarousel.addEventListener('touchend',    onSwipeEnd);
-photoCarousel.addEventListener('touchcancel', onSwipeEnd);
-photoCarousel.addEventListener('mousedown',   e => { e.preventDefault(); onSwipeStart(e.clientX, e.clientY); });
-window.addEventListener('mousemove', e => { if (dragActive) onSwipeMove(e.clientX, e.clientY); });
-window.addEventListener('mouseup',   onSwipeEnd);
-window.addEventListener('blur', () => { if (dragActive) { dragActive = false; photoTrack.classList.remove('notrans'); setCarouselPos(vIdx, false); } });
-document.addEventListener('mouseleave', () => { if (dragActive) { dragActive = false; photoTrack.classList.remove('notrans'); setCarouselPos(vIdx, false); } });
+photoCarousel.addEventListener('pointerdown', e => {
+  if (!e.isPrimary) return;
+  e.preventDefault();
+  photoCarousel.setPointerCapture(e.pointerId);
+  onSwipeStart(e.clientX, e.clientY);
+});
+photoCarousel.addEventListener('pointermove', e => {
+  if (!e.isPrimary || !dragActive) return;
+  e.preventDefault();
+  onSwipeMove(e.clientX, e.clientY);
+}, { passive: false });
+photoCarousel.addEventListener('pointerup', e => {
+  if (!e.isPrimary) return;
+  photoCarousel.releasePointerCapture(e.pointerId);
+  onSwipeEnd();
+});
+photoCarousel.addEventListener('pointercancel', e => {
+  if (!e.isPrimary) return;
+  photoCarousel.releasePointerCapture(e.pointerId);
+  if (dragActive) { dragActive = false; photoTrack.classList.remove('notrans'); setCarouselPos(vIdx, false); }
+});
 
 
 /* ══════════════════════════════════════════

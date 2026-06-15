@@ -1943,6 +1943,8 @@ photoCarousel.addEventListener('touchcancel', onSwipeEnd);
 photoCarousel.addEventListener('mousedown',   e => { e.preventDefault(); onSwipeStart(e.clientX, e.clientY); });
 window.addEventListener('mousemove', e => { if (dragActive) onSwipeMove(e.clientX, e.clientY); });
 window.addEventListener('mouseup',   onSwipeEnd);
+window.addEventListener('blur', () => { if (dragActive) { dragActive = false; photoTrack.classList.remove('notrans'); setCarouselPos(vIdx, false); } });
+document.addEventListener('mouseleave', () => { if (dragActive) { dragActive = false; photoTrack.classList.remove('notrans'); setCarouselPos(vIdx, false); } });
 
 
 /* ══════════════════════════════════════════

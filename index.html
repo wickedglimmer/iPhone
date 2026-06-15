@@ -1443,6 +1443,7 @@ body {
    ═══════════════════════════════════════════════════════════════════════ */
 const PHOTO_CDN = 'https://cdn.shopify.com/s/files/1/0734/4671/9780/files/';
 const PHOTOS = [
+  '00.jpg',
   '0.jpg',
   '1marwang.jpg',
   '2girl.jpg',
@@ -2278,9 +2279,14 @@ buildScrubber(photoList);
 vIdx = 1;
 setCarouselPos(vIdx, false);
 
-/* ── Initial state: show dashboard ── */
+/* ── Initial state: camera roll open on first photo ── */
 ALL_VIEWS.forEach(v => v.classList.add('hidden'));
-dashView.classList.remove('hidden');
+gridView.classList.remove('hidden');
+goTo(0, false);
+photoView.classList.remove('hidden');
+photoView.style.transform = '';
+photoView.style.opacity   = '';
+resetIdleTimer();
 
 })();
 

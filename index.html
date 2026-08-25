@@ -1668,6 +1668,11 @@ function toReal(vi) { return vi - 1; }
 function setCarouselPos(vi, animate) {
   photoTrack.classList.toggle('notrans', !animate);
   photoTrack.style.transform = `translateX(${-vi * SW}px)`;
+  // Re-arm transitions after a jump-cut, otherwise 'notrans' sticks and the next
+  // swipe never fires transitionend -- which is what syncs counter + scrubber.
+  if (!animate) { void photoTrack.offsetWidth; photoTrack.classList.remove('notrans'); }
+  syncScrubber(toReal(vi));
+  syncCounter(toReal(vi));
 }
 
 function syncScrubber(ri) {
